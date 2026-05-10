@@ -51,7 +51,7 @@ const rankings: Ranking[] = [
 
 export const rankingsService = {
   getPublic(): Ranking[] {
-    return rankings.filter((r) => r.isPublic)
+    return rankings.filter((r) => r.isPublic && r.userId === 'demo')
   },
 
   getByUser(userId: string): Ranking[] {

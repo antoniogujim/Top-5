@@ -12,7 +12,7 @@ export default function CreateRanking() {
   const { id } = useParams()
   const isEditing = !!id
 
-  const { addRanking, updateRanking, rankings } = useRankings()
+  const { addRanking, updateRanking, rankings, canCreate } = useRankings()
   const { categories, addCategory, removeCategory } = useCategories()
 
   const existing = isEditing ? rankings.find((r) => r.id === id) : null
@@ -27,6 +27,7 @@ export default function CreateRanking() {
   const [newLabel, setNewLabel] = useState('')
 
   if (isEditing && !existing) return <Navigate to="/" replace />
+  if (!isEditing && !canCreate) return <Navigate to="/premium" replace />
 
   const updateItem = (index: number, value: string) =>
     setItems((prev) => prev.map((item, i) => (i === index ? value : item)))

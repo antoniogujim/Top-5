@@ -175,6 +175,14 @@ Tabla comparativa entre el plan **Gratis** y **Premium**:
 
 Precio estimado: **2,99 € / mes**. El botón de pago está deshabilitado ("Próximamente").
 
+### `/profile` — Perfil de usuario
+
+Página de solo lectura con la información de la cuenta autenticada:
+
+- **Tarjeta de usuario** — avatar con las iniciales del nombre, username, email y badge de plan (verde para Gratis, amarillo para Premium).
+- **Sección de plan** — número de rankings creados frente al límite (con barra de progreso en plan Gratis). Si hay slots disponibles muestra cuántos quedan; si no, muestra un enlace directo a `/premium`.
+- **Botón de acción rápida** — "Crear nuevo ranking" si `canCreate`, o "Mejorar plan para crear más" (apunta a `/premium`) si se ha alcanzado el límite.
+
 ### `/auth` — Autenticación
 
 Formulario con toggle entre **Iniciar sesión** (email + contraseña) y **Registrarse** (usuario + email + contraseña + confirmar contraseña). Conectado con la API: llama a `POST /api/auth/login` o `POST /api/auth/register`, guarda el JWT en `localStorage` y redirige al home. Los errores del servidor se muestran inline. Si ya hay sesión activa, redirige automáticamente al home.
@@ -209,10 +217,12 @@ await api.del('/rankings/123')
 
 ### Navbar
 
-La barra de navegación es consciente del estado de autenticación:
+La barra de navegación es consciente del estado de autenticación y se adapta al tamaño de pantalla:
 
 - **Sin sesión** — muestra el enlace "Acceder". El botón "Crear" está oculto.
-- **Con sesión** — muestra el nombre de usuario (enlace a `/profile`) y el botón "Cerrar sesión". Al hacer logout redirige al home.
+- **Con sesión** — muestra el nombre de usuario (enlace a `/profile`, con estilo de píldora) y el botón "Cerrar sesión". Al hacer logout redirige al home.
+- **Plan gratuito con límite alcanzado** — el enlace "Crear" cambia a "Mejorar" y apunta a `/premium`.
+- **Móvil** — fila superior con Logo + controles de sesión; fila inferior con los enlaces de navegación (Crear/Mejorar, Premium, username). Los textos "Modo oscuro/claro" y "Cerrar sesión" se acortan a "Oscuro/Claro" y "Salir".
 
 ### Protección de rutas
 
@@ -241,7 +251,7 @@ ThemeProvider
 
 **`CategoryContext`** — Carga las categorías de `GET /api/categories` al montar. `addCategory` y `removeCategory` sincronizan con la API (requieren autenticación).
 
-**`RankingContext`** — Carga rankings de `GET /api/rankings` al montar y cada vez que cambia el estado de autenticación. Con token devuelve los rankings del usuario; sin token devuelve los públicos. Expone `addRanking`, `removeRanking` y `updateRanking` (todos asíncronos).
+**`RankingContext`** — Carga rankings de `GET /api/rankings` al montar y cada vez que cambia el estado de autenticación. Con token devuelve los rankings del usuario; sin token devuelve únicamente los rankings de demo (no los de otros usuarios). Expone `addRanking`, `removeRanking` y `updateRanking` (todos asíncronos).
 
 ### Modelo de datos
 
@@ -331,7 +341,7 @@ canCreate(userId: string, isPremium: boolean): boolean {
 }
 ```
 
-Si `canCreate` devuelve `false`, el backend responde `403` y el frontend no navega al home.
+Si `canCreate` devuelve `false`, el backend responde `403` y el frontend redirige a `/premium` (tanto desde `/create` como desde el botón de perfil y el enlace de la Navbar).
 
 ---
 
@@ -407,8 +417,10 @@ vercel --prod        # producción
 | CRUD de rankings | Completo (frontend + backend + API) |
 | Autenticación JWT | Completo (registro, login, sesión persistente) |
 | Protección de rutas | Completo (PrivateRoute + PublicOnlyRoute) |
-| Navbar contextual | Completo (muestra usuario, logout, oculta "Crear" sin sesión) |
-| Rankings de ejemplo públicos | Completo (solo lectura para usuarios no autenticados) |
+| Navbar contextual | Completo (muestra usuario, logout, oculta "Crear" sin sesión, responsive) |
+| Navbar límite de plan | Completo ("Crear" pasa a "Mejorar" al alcanzar el límite gratuito) |
+| Rankings de ejemplo públicos | Completo (solo demo; los rankings de usuarios no se exponen públicamente) |
+| Perfil de usuario | Completo (datos de cuenta, progreso de plan, acceso rápido a crear) |
 | Categorías personalizadas | Completo (frontend + backend + API) |
 | Modo oscuro / claro | Completo |
 | Compartir rankings | Completo |
@@ -426,8 +438,8 @@ vercel --prod        # producción
 
 ### Prioridad media
 
-- **Perfil de usuario** — La página `/profile` existe pero no muestra datos reales ni permite editar el perfil.
 - **Manejo de errores en la UI** — Mostrar mensajes de error cuando las llamadas a la API fallan en Home, CreateRanking o CategoryContext (ahora fallan silenciosamente).
+- **Edición de perfil** — La página `/profile` muestra los datos del usuario pero no permite editarlos (requiere endpoint `PUT /api/auth/me` en el backend).
 
 ### Prioridad baja
 
