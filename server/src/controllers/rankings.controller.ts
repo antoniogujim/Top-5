@@ -4,9 +4,8 @@ import { authService } from '../services/auth.service'
 
 export const rankingsController = {
   getAll(req: Request, res: Response): void {
-    const userId = (req as any).userId as string | undefined
-    const rankings = userId
-      ? rankingsService.getByUser(userId)
+    const rankings = req.userId
+      ? rankingsService.getByUser(req.userId)
       : rankingsService.getPublic()
     res.json(rankings)
   },
@@ -22,7 +21,7 @@ export const rankingsController = {
 
   create(req: Request, res: Response): void {
     try {
-      const userId = (req as any).userId as string
+      const userId = req.userId!
       const user = authService.getUserById(userId)
       if (!user) {
         res.status(401).json({ message: 'Unauthorized' })
@@ -41,7 +40,7 @@ export const rankingsController = {
 
   update(req: Request, res: Response): void {
     try {
-      const userId = (req as any).userId as string
+      const userId = req.userId!
       const ranking = rankingsService.update(req.params.id, userId, req.body)
       res.json(ranking)
     } catch (err) {
@@ -52,7 +51,7 @@ export const rankingsController = {
 
   remove(req: Request, res: Response): void {
     try {
-      const userId = (req as any).userId as string
+      const userId = req.userId!
       rankingsService.remove(req.params.id, userId)
       res.status(204).send()
     } catch (err) {

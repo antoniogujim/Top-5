@@ -50,7 +50,7 @@ export default function CreateRanking() {
     return next
   }
 
-  const handleSubmit = (e: { preventDefault(): void }) => {
+  const handleSubmit = async (e: { preventDefault(): void }) => {
     e.preventDefault()
     const next = validate()
     if (Object.keys(next).length > 0) { setErrors(next); return }
@@ -60,17 +60,10 @@ export default function CreateRanking() {
       .filter((item) => item.title !== '')
 
     if (isEditing) {
-      updateRanking(id!, { title: title.trim(), category, items: itemsFiltered })
+      await updateRanking(id!, { title: title.trim(), category, items: itemsFiltered })
     } else {
-      addRanking({
-        id: crypto.randomUUID(),
-        title: title.trim(),
-        category,
-        isPublic: true,
-        userId: 'demo',
-        createdAt: new Date().toISOString(),
-        items: itemsFiltered,
-      })
+      const ok = await addRanking({ title: title.trim(), category, isPublic: true, items: itemsFiltered })
+      if (!ok) return
     }
 
     navigate('/')

@@ -1,44 +1,46 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
+import { api } from '../api/client'
 
 export interface CategoryItem {
   value: string
   label: string
 }
 
-const DEFAULT_CATEGORIES: CategoryItem[] = [
-  { value: 'food',       label: 'Comida' },
-  { value: 'movies',     label: 'Películas' },
-  { value: 'series',     label: 'Series' },
-  { value: 'songs',      label: 'Canciones' },
-  { value: 'videogames', label: 'Videojuegos' },
-]
-
 interface CategoryContextType {
   categories: CategoryItem[]
-  addCategory: (label: string) => void
-  removeCategory: (value: string) => void
+  addCategory: (label: string) => Promise<void>
+  removeCategory: (value: string) => Promise<void>
 }
 
 const CategoryContext = createContext<CategoryContextType>({
-  categories: DEFAULT_CATEGORIES,
-  addCategory: () => {},
-  removeCategory: () => {},
+  categories: [],
+  addCategory: async () => {},
+  removeCategory: async () => {},
 })
 
 export function CategoryProvider({ children }: { children: ReactNode }) {
-  const [categories, setCategories] = useState<CategoryItem[]>(DEFAULT_CATEGORIES)
+  const [categories, setCategories] = useState<CategoryItem[]>([])
 
-  const addCategory = (label: string) => {
+  useEffect(() => {
+    api.get<CategoryItem[]>('/categories')
+      .then(setCategories)
+      .catch(() => {})
+  }, [])
+
+  const addCategory = async (label: string): Promise<void> => {
     const trimmed = label.trim()
     if (!trimmed) return
     const value = trimmed.toLowerCase().replace(/\s+/g, '-')
     if (categories.find((c) => c.value === value)) return
-    setCategories((prev) => [...prev, { value, label: trimmed }])
+    const created = await api.post<CategoryItem>('/categories', { label: trimmed })
+    setCategories((prev) => [...prev, created])
   }
 
-  const removeCategory = (value: string) =>
+  const removeCategory = async (value: string): Promise<void> => {
+    await api.del(`/categories/${value}`)
     setCategories((prev) => prev.filter((c) => c.value !== value))
+  }
 
   return (
     <CategoryContext.Provider value={{ categories, addCategory, removeCategory }}>

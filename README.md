@@ -16,6 +16,7 @@ Aplicación web para crear, gestionar y compartir rankings personales de Top 5 e
 - [Instalación y desarrollo local](#instalación-y-desarrollo-local)
 - [Despliegue en Vercel](#despliegue-en-vercel)
 - [Estado actual del proyecto](#estado-actual-del-proyecto)
+- [Pendiente](#pendiente)
 
 ---
 
@@ -29,8 +30,9 @@ Aplicación web para crear, gestionar y compartir rankings personales de Top 5 e
 4. Compartir un ranking: si el navegador soporta la Web Share API, abre el diálogo nativo del sistema; si no, copia el enlace directo al portapapeles y muestra el texto "¡Copiado!".
 5. Añadir o quitar categorías personalizadas directamente desde el formulario de creación.
 6. Cambiar entre modo claro y modo oscuro, que se recuerda entre sesiones.
+7. Registrarse e iniciar sesión con email y contraseña — el JWT se persiste en `localStorage` y la sesión se restaura automáticamente al recargar.
 
-Los datos de rankings y preferencia de tema se persisten en `localStorage`, por lo que no se pierden al cerrar el navegador.
+Los rankings y categorías se persisten en la API REST. El tema (claro/oscuro) se guarda en `localStorage`.
 
 ---
 
@@ -68,6 +70,8 @@ Los datos de rankings y preferencia de tema se persisten en `localStorage`, por 
 ├── src/                          # Frontend (React)
 │   ├── main.tsx                  # Entry point
 │   ├── App.tsx                   # Árbol de providers + router
+│   ├── api/
+│   │   └── client.ts             # Wrapper de fetch: añade JWT automáticamente
 │   ├── router/
 │   │   └── index.tsx             # Definición de rutas con React Router
 │   ├── pages/
@@ -75,7 +79,7 @@ Los datos de rankings y preferencia de tema se persisten en `localStorage`, por 
 │   │   ├── CreateRanking/        # Formulario crear / editar ranking
 │   │   ├── ViewRanking/          # Vista pública de un ranking concreto
 │   │   ├── Premium/              # Comparativa de planes y precio
-│   │   ├── Auth/                 # Login y registro (UI lista, lógica pendiente)
+│   │   ├── Auth/                 # Login y registro (conectado con la API)
 │   │   └── Profile/              # Perfil del usuario
 │   ├── components/
 │   │   ├── layout/
@@ -85,9 +89,9 @@ Los datos de rankings y preferencia de tema se persisten en `localStorage`, por 
 │   │   └── ui/
 │   │       └── Modal.tsx         # Modal reutilizable de confirmación
 │   ├── context/
-│   │   ├── AuthContext.tsx       # Estado de sesión (usuario logado / no logado)
-│   │   ├── RankingContext.tsx    # CRUD de rankings + persistencia en localStorage
-│   │   ├── CategoryContext.tsx   # Gestión de categorías (añadir / eliminar)
+│   │   ├── AuthContext.tsx       # JWT en localStorage, restaura sesión al recargar
+│   │   ├── RankingContext.tsx    # CRUD de rankings vía API REST
+│   │   ├── CategoryContext.tsx   # Categorías vía API REST
 │   │   └── ThemeContext.tsx      # Modo claro/oscuro + persistencia en localStorage
 │   ├── hooks/
 │   │   ├── useAuth.ts            # Acceso a AuthContext
@@ -101,18 +105,22 @@ Los datos de rankings y preferencia de tema se persisten en `localStorage`, por 
 ├── server/                       # Backend (Express)
 │   └── src/
 │       ├── index.ts              # Entry point, monta Express y define middleware global
-│       ├── config.ts             # Variables de entorno (puerto, JWT secret)
-│       ├── types.ts              # Tipos compartidos del servidor (JwtPayload...)
+│       ├── config/
+│       │   └── index.ts          # Variables de entorno (puerto, JWT secret)
+│       ├── express.d.ts          # Extiende Request con userId?: string
+│       ├── types.ts              # Tipos compartidos del servidor (User, Ranking, JwtPayload...)
 │       ├── routes/
 │       │   ├── auth.routes.ts    # POST /register, POST /login, GET /me
 │       │   ├── rankings.routes.ts# CRUD completo de rankings
 │       │   ├── categories.routes.ts # CRUD de categorías
-│       │   └── middleware.ts     # requireAuth — valida Bearer JWT
+│       │   └── middleware.ts     # requireAuth + optionalAuth (valida Bearer JWT)
 │       ├── controllers/
+│       │   ├── auth.controller.ts
 │       │   ├── rankings.controller.ts
 │       │   └── categories.controller.ts
 │       └── services/
-│           ├── rankings.service.ts
+│           ├── auth.service.ts   # Usuarios en memoria (pendiente: base de datos)
+│           ├── rankings.service.ts  # Rankings en memoria (pendiente: base de datos)
 │           └── categories.service.ts
 │
 ├── public/                       # Assets estáticos servidos por Vite
@@ -127,11 +135,11 @@ Los datos de rankings y preferencia de tema se persisten en `localStorage`, por 
 
 ### `/` — Home
 
-Muestra todos los rankings existentes en una cuadrícula responsiva (1 columna en móvil, 2 en tablet, 3 en escritorio). Cada ranking se renderiza con un `RankingCard` que expone tres acciones:
+Muestra todos los rankings del usuario autenticado (o los rankings públicos si no hay sesión). Cada ranking se renderiza con un `RankingCard` que expone tres acciones:
 
 - **Editar** → navega a `/edit/:id` con el formulario pre-relleno.
 - **Compartir** → usa la Web Share API si está disponible o copia el enlace `/ranking/:id` al portapapeles.
-- **Eliminar** → abre un `Modal` de confirmación antes de borrar definitivamente.
+- **Eliminar** → abre un `Modal` de confirmación antes de borrar definitivamente (llama a `DELETE /api/rankings/:id`).
 
 Si no hay rankings, se muestra un mensaje de estado vacío.
 
@@ -143,11 +151,11 @@ Formulario con tres secciones:
 2. **Categoría** — se muestra como chips/píldoras seleccionables. Se puede añadir una categoría nueva pulsando `+`, escribir el nombre y confirmar con `Enter` o `✓`. También se puede eliminar cualquier categoría con la `×` de cada chip.
 3. **Top 5** — cinco campos numerados. La posición 1 es obligatoria; las demás son opcionales. Los campos vacíos se descartan al guardar.
 
-Al enviar, se valida el formulario. Si hay errores se muestran inline. Si todo es correcto se añade el ranking al estado global y se redirige al home.
+Al enviar, el ranking se crea en el backend (`POST /api/rankings`) y redirige al home.
 
 ### `/edit/:id` — Editar ranking
 
-Usa el mismo componente `CreateRanking` pero en modo edición: carga los datos del ranking existente, muestra "Editar Ranking" como título y al guardar llama a `updateRanking` en vez de `addRanking`. Si el `:id` no existe en el estado, redirige automáticamente al home.
+Usa el mismo componente `CreateRanking` pero en modo edición: carga los datos del ranking existente y al guardar llama a `PUT /api/rankings/:id`. Si el `:id` no existe, redirige automáticamente al home.
 
 ### `/ranking/:id` — Vista pública
 
@@ -169,11 +177,28 @@ Precio estimado: **2,99 € / mes**. El botón de pago está deshabilitado ("Pr�
 
 ### `/auth` — Autenticación
 
-Formulario con toggle entre **Iniciar sesión** (email + contraseña) y **Registrarse** (usuario + email + contraseña + confirmar contraseña). La UI está completa pero la lógica de conexión con el backend está pendiente — se muestra un aviso en la parte inferior.
+Formulario con toggle entre **Iniciar sesión** (email + contraseña) y **Registrarse** (usuario + email + contraseña + confirmar contraseña). Conectado con la API: llama a `POST /api/auth/login` o `POST /api/auth/register`, guarda el JWT en `localStorage` y redirige al home. Los errores del servidor se muestran inline.
 
 ---
 
 ## Arquitectura frontend
+
+### Cliente API (`src/api/client.ts`)
+
+Wrapper sobre `fetch` que centraliza todas las llamadas al backend:
+
+- Añade automáticamente el header `Authorization: Bearer <token>` si hay un JWT en `localStorage`.
+- Lanza un `Error` con el mensaje del servidor cuando la respuesta no es `2xx`.
+- Maneja correctamente las respuestas `204 No Content` (DELETE).
+
+```ts
+import { api } from '../api/client'
+
+const rankings = await api.get<Ranking[]>('/rankings')
+const created  = await api.post<Ranking>('/rankings', data)
+await api.put('/rankings/123', updates)
+await api.del('/rankings/123')
+```
 
 ### Contexts y estado global
 
@@ -187,13 +212,13 @@ ThemeProvider
                     └── AppRouter
 ```
 
-**`ThemeContext`** — Gestiona `'light' | 'dark'`. Al cambiar, añade/quita la clase `dark` en `<html>` (Tailwind dark mode por clase) y lo guarda en `localStorage`.
+**`ThemeContext`** — Gestiona `'light' | 'dark'`. Al cambiar, añade/quita la clase `dark` en `<html>` y lo guarda en `localStorage`.
 
-**`AuthContext`** — Almacena el objeto `User | null` en memoria. Expone `login(user)`, `logout()` e `isAuthenticated`. Al recargar la página la sesión se pierde (pendiente conectar con JWT del backend).
+**`AuthContext`** — Al montar comprueba si hay un token en `localStorage` y llama a `GET /api/auth/me` para restaurar la sesión. Expone `login(email, password)`, `register(username, email, password)` y `logout()`.
 
-**`CategoryContext`** — Array de `{ value, label }`. Permite añadir categorías nuevas (normaliza el label a kebab-case para el value) y eliminarlas. No persiste entre sesiones.
+**`CategoryContext`** — Carga las categorías de `GET /api/categories` al montar. `addCategory` y `removeCategory` sincronizan con la API (requieren autenticación).
 
-**`RankingContext`** — Array de `Ranking[]` persistido en `localStorage` (clave `rankings`). Aplica el límite de `FREE_LIST_LIMIT = 10` para usuarios no premium. Expone `addRanking`, `removeRanking` y `updateRanking`.
+**`RankingContext`** — Carga rankings de `GET /api/rankings` al montar y cada vez que cambia el estado de autenticación. Con token devuelve los rankings del usuario; sin token devuelve los públicos. Expone `addRanking`, `removeRanking` y `updateRanking` (todos asíncronos).
 
 ### Modelo de datos
 
@@ -206,9 +231,9 @@ interface User {
 }
 
 interface Ranking {
-  id: string          // crypto.randomUUID()
+  id: string
   title: string
-  category: string    // valor del CategoryItem
+  category: string
   items: RankingItem[] // máximo 5
   userId: string
   createdAt: string   // ISO 8601
@@ -241,42 +266,49 @@ El servidor Express expone tres grupos de rutas bajo el prefijo `/api`. Las ruta
 | Método | Ruta | Descripción |
 |---|---|---|
 | `POST` | `/api/auth/register` | Crea una cuenta nueva |
-| `POST` | `/api/auth/login` | Devuelve un JWT |
+| `POST` | `/api/auth/login` | Devuelve un JWT (7 días de validez) |
 | `GET` | `/api/auth/me` | Devuelve el usuario autenticado (auth) |
 
 ### Rankings
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| `GET` | `/api/rankings` | Lista todos los rankings públicos |
-| `GET` | `/api/rankings/:id` | Detalle de un ranking concreto |
-| `POST` | `/api/rankings` | Crea un ranking (auth) |
-| `PUT` | `/api/rankings/:id` | Actualiza un ranking (auth) |
-| `DELETE` | `/api/rankings/:id` | Elimina un ranking (auth) |
+| Método | Ruta | Auth | Descripción |
+|---|---|---|---|
+| `GET` | `/api/rankings` | Opcional | Con token → rankings del usuario; sin token → rankings públicos |
+| `GET` | `/api/rankings/:id` | No | Detalle de un ranking concreto |
+| `POST` | `/api/rankings` | Sí | Crea un ranking |
+| `PUT` | `/api/rankings/:id` | Sí | Actualiza un ranking (solo el propietario) |
+| `DELETE` | `/api/rankings/:id` | Sí | Elimina un ranking (solo el propietario) |
 
 ### Categorías
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| `GET` | `/api/categories` | Lista categorías disponibles |
-| `POST` | `/api/categories` | Crea una categoría (auth) |
-| `DELETE` | `/api/categories/:value` | Elimina una categoría (auth) |
+| Método | Ruta | Auth | Descripción |
+|---|---|---|---|
+| `GET` | `/api/categories` | No | Lista todas las categorías |
+| `POST` | `/api/categories` | Sí | Crea una categoría nueva |
+| `DELETE` | `/api/categories/:value` | Sí | Elimina una categoría |
 
-El middleware `requireAuth` extrae el token del header `Authorization: Bearer <token>`, lo verifica con `jsonwebtoken` y adjunta el `userId` al request. Devuelve `401` si falta el token o es inválido.
+### Middlewares
+
+- **`requireAuth`** — Extrae el token del header `Authorization: Bearer <token>`, lo verifica y adjunta `userId` al request. Devuelve `401` si falta o es inválido.
+- **`optionalAuth`** — Igual que `requireAuth` pero no bloquea si no hay token. Usado en `GET /api/rankings` para personalizar la respuesta según si el usuario está logado o no.
 
 ---
 
 ## Planes: Gratis vs Premium
 
-La lógica de límites vive en `RankingContext`:
+La lógica de límites vive en el backend (`rankings.service.ts`) y se replica en el frontend (`RankingContext`):
 
 ```ts
 const FREE_LIST_LIMIT = 10 // src/utils/constants.ts
 
-const canCreate = isPremium || rankings.length < FREE_LIST_LIMIT
+// Backend: rankings.service.ts
+canCreate(userId: string, isPremium: boolean): boolean {
+  if (isPremium) return true
+  return rankings.filter(r => r.userId === userId).length < freeListLimit
+}
 ```
 
-Si `canCreate` es `false`, el método `addRanking` devuelve `false` sin añadir nada. La UI debe gestionar ese caso mostrando un aviso o redirigiendo a `/premium`.
+Si `canCreate` devuelve `false`, el backend responde `403` y el frontend no navega al home.
 
 ---
 
@@ -290,19 +322,10 @@ Si `canCreate` es `false`, el método `addRanking` devuelve `false` sin añadir 
 ### Frontend
 
 ```bash
-# Instalar dependencias
 npm install
-
-# Servidor de desarrollo con HMR en http://localhost:5173
-npm run dev
-
-# Compilar para producción
+npm run dev      # http://localhost:5173
 npm run build
-
-# Previsualizar el build de producción
 npm run preview
-
-# Lint
 npm run lint
 ```
 
@@ -310,28 +333,22 @@ npm run lint
 
 ```bash
 cd server
-
-# Instalar dependencias
 npm install
-
-# Servidor de desarrollo con recarga automática en http://localhost:3000
-npm run dev
-
-# Compilar TypeScript a dist/
+npm run dev      # http://localhost:3001
 npm run build
-
-# Arrancar el build compilado
 npm start
 ```
 
 ### Variables de entorno del backend
 
-Crea un archivo `server/.env` (o configúralo en Vercel) con:
+Crea `server/.env`:
 
 ```env
-PORT=3000
+PORT=3001
 JWT_SECRET=tu_secreto_muy_seguro
 ```
+
+> El proxy de Vite (`/api → http://localhost:3001`) hace que el frontend en local apunte automáticamente al backend sin cambiar nada más.
 
 ---
 
@@ -339,17 +356,23 @@ JWT_SECRET=tu_secreto_muy_seguro
 
 `vercel.json` configura dos builders:
 
-- **Frontend** — `@vercel/static-build` ejecuta `npm run build` y sirve la carpeta `dist/` como SPA (cualquier ruta no encontrada redirige a `index.html`).
+- **Frontend** — `@vercel/static-build` ejecuta `npm run build` y sirve `dist/` como SPA.
 - **Backend** — `@vercel/node` convierte `server/src/index.ts` en una serverless function.
 
-Las peticiones a `/api/*` se enrutan automáticamente al servidor Express. El resto llega al frontend React.
+Las peticiones a `/api/*` se enrutan al servidor Express. El resto llega al frontend React. Al estar en el mismo dominio, el cliente API usa rutas relativas (`/api/...`) sin necesidad de configurar CORS ni URLs absolutas.
+
+### Variables de entorno en Vercel
+
+En el panel de Vercel → tu proyecto → **Settings → Environment Variables**:
+
+| Variable | Descripción |
+|---|---|
+| `JWT_SECRET` | Cadena aleatoria larga para firmar los JWT |
+| `PORT` | Opcional — Vercel lo gestiona automáticamente |
 
 ```bash
-# Desplegar
-vercel deploy
-
-# Desplegar en producción
-vercel --prod
+vercel deploy        # preview
+vercel --prod        # producción
 ```
 
 ---
@@ -358,14 +381,31 @@ vercel --prod
 
 | Funcionalidad | Estado |
 |---|---|
-| CRUD de rankings (frontend) | Completo |
-| Persistencia en localStorage | Completo |
+| CRUD de rankings | Completo (frontend + backend + API) |
+| Autenticación JWT | Completo (registro, login, sesión persistente) |
+| Categorías personalizadas | Completo (frontend + backend + API) |
 | Modo oscuro / claro | Completo |
 | Compartir rankings | Completo |
-| Categorías personalizadas | Completo |
-| UI de autenticación | Completo (sin lógica) |
-| API REST backend | Estructura completa |
-| Conexión frontend ↔ backend | Pendiente |
-| Autenticación real (JWT) | Pendiente |
-| Plan Premium / pagos | Pendiente (UI lista) |
-| Persistencia de categorías | Pendiente |
+| Vista pública de ranking | Completo |
+| Plan Premium / pagos | UI lista — lógica pendiente |
+
+---
+
+## Pendiente
+
+### Prioridad alta
+
+- **Base de datos real** — Actualmente usuarios, rankings y categorías se almacenan en arrays en memoria dentro de los servicios del backend. Al reiniciar el servidor (o en Vercel entre invocaciones serverless) los datos se pierden. Hay que integrar una base de datos persistente (PostgreSQL, MongoDB, SQLite...).
+- **Hash de contraseñas** — Las contraseñas se guardan en texto plano. Hay que usar `bcrypt` antes de almacenarlas y al verificar el login.
+
+### Prioridad media
+
+- **Protección de rutas en el frontend** — Las páginas `/create`, `/edit/:id` y `/profile` deberían redirigir a `/auth` si el usuario no está autenticado.
+- **Perfil de usuario** — La página `/profile` existe pero no muestra datos reales ni permite editar el perfil.
+- **Manejo de errores en la UI** — Mostrar mensajes de error cuando las llamadas a la API fallan en Home, CreateRanking o CategoryContext (ahora fallan silenciosamente).
+
+### Prioridad baja
+
+- **Plan Premium / pagos** — Integrar pasarela de pago (Stripe) y lógica de upgrade de cuenta.
+- **Persistencia de sesión mejorada** — Refresh tokens para no tener que volver a logarse cada 7 días.
+- **Tests** — No hay tests unitarios ni de integración.
