@@ -3,10 +3,10 @@ import { config } from '../config'
 
 const rankings: Ranking[] = [
   {
-    id: '1',
+    id: 'demo-1',
     title: 'Mejores pelis de acción',
     category: 'movies',
-    userId: '1',
+    userId: 'demo',
     createdAt: '2024-01-01',
     isPublic: true,
     items: [
@@ -18,10 +18,10 @@ const rankings: Ranking[] = [
     ],
   },
   {
-    id: '2',
+    id: 'demo-2',
     title: 'Canciones del verano',
     category: 'songs',
-    userId: '1',
+    userId: 'demo',
     createdAt: '2024-01-02',
     isPublic: true,
     items: [
@@ -30,6 +30,21 @@ const rankings: Ranking[] = [
       { position: 3, title: 'Stay' },
       { position: 4, title: 'Levitating' },
       { position: 5, title: 'Heat Waves' },
+    ],
+  },
+  {
+    id: 'demo-3',
+    title: 'Videojuegos imprescindibles',
+    category: 'videogames',
+    userId: 'demo',
+    createdAt: '2024-01-03',
+    isPublic: true,
+    items: [
+      { position: 1, title: 'The Last of Us' },
+      { position: 2, title: 'Red Dead Redemption 2' },
+      { position: 3, title: 'Elden Ring' },
+      { position: 4, title: 'God of War' },
+      { position: 5, title: 'Hollow Knight' },
     ],
   },
 ]

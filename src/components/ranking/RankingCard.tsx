@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Ranking } from '../../types'
 import { useCategories } from '../../context/CategoryContext'
 import { useShare } from '../../hooks/useShare'
+import { useAuth } from '../../hooks/useAuth'
 import { Modal } from '../ui/Modal'
 
 interface RankingCardProps {
@@ -13,8 +14,10 @@ interface RankingCardProps {
 export function RankingCard({ ranking, onEdit, onDelete }: RankingCardProps) {
   const { categories } = useCategories()
   const { share, copied } = useShare()
+  const { user } = useAuth()
   const [showConfirm, setShowConfirm] = useState(false)
 
+  const isOwner = !!user && user.id === ranking.userId
   const categoryLabel = categories.find((c) => c.value === ranking.category)?.label ?? ranking.category
 
   return (
@@ -44,24 +47,28 @@ export function RankingCard({ ranking, onEdit, onDelete }: RankingCardProps) {
 
       {/* Actions */}
       <div className="flex border-t border-green-100 dark:border-green-800">
-        <button
-          onClick={() => onEdit(ranking.id)}
-          className="flex-1 py-2 text-sm font-medium text-black dark:text-green-200 hover:bg-green-50 dark:hover:bg-green-900"
-        >
-          Editar
-        </button>
+        {isOwner && (
+          <button
+            onClick={() => onEdit(ranking.id)}
+            className="flex-1 py-2 text-sm font-medium text-black dark:text-green-200 hover:bg-green-50 dark:hover:bg-green-900"
+          >
+            Editar
+          </button>
+        )}
         <button
           onClick={() => share(ranking.id, ranking.title)}
-          className="flex-1 py-2 text-sm font-medium text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900 border-x border-green-100 dark:border-green-800"
+          className={`flex-1 py-2 text-sm font-medium text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900 ${isOwner ? 'border-x border-green-100 dark:border-green-800' : ''}`}
         >
           {copied ? '¡Copiado!' : 'Compartir'}
         </button>
-        <button
-          onClick={() => setShowConfirm(true)}
-          className="flex-1 py-2 text-sm font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"
-        >
-          Eliminar
-        </button>
+        {isOwner && (
+          <button
+            onClick={() => setShowConfirm(true)}
+            className="flex-1 py-2 text-sm font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"
+          >
+            Eliminar
+          </button>
+        )}
       </div>
 
       {showConfirm && (

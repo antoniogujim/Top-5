@@ -135,13 +135,13 @@ Los rankings y categorías se persisten en la API REST. El tema (claro/oscuro) s
 
 ### `/` — Home
 
-Muestra todos los rankings del usuario autenticado (o los rankings públicos si no hay sesión). Cada ranking se renderiza con un `RankingCard` que expone tres acciones:
+- **Sin sesión** — muestra rankings de ejemplo (solo botón "Compartir" visible).
+- **Con sesión** — muestra los rankings del usuario. Cada tarjeta expone tres acciones solo si el ranking pertenece al usuario:
+  - **Editar** → navega a `/edit/:id` con el formulario pre-relleno.
+  - **Compartir** → usa la Web Share API si está disponible o copia el enlace `/ranking/:id` al portapapeles.
+  - **Eliminar** → abre un `Modal` de confirmación antes de borrar definitivamente (llama a `DELETE /api/rankings/:id`).
 
-- **Editar** → navega a `/edit/:id` con el formulario pre-relleno.
-- **Compartir** → usa la Web Share API si está disponible o copia el enlace `/ranking/:id` al portapapeles.
-- **Eliminar** → abre un `Modal` de confirmación antes de borrar definitivamente (llama a `DELETE /api/rankings/:id`).
-
-Si no hay rankings, se muestra un mensaje de estado vacío.
+Si no hay rankings propios, se muestra un mensaje de estado vacío.
 
 ### `/create` — Crear ranking
 
@@ -177,7 +177,14 @@ Precio estimado: **2,99 € / mes**. El botón de pago está deshabilitado ("Pr�
 
 ### `/auth` — Autenticación
 
-Formulario con toggle entre **Iniciar sesión** (email + contraseña) y **Registrarse** (usuario + email + contraseña + confirmar contraseña). Conectado con la API: llama a `POST /api/auth/login` o `POST /api/auth/register`, guarda el JWT en `localStorage` y redirige al home. Los errores del servidor se muestran inline.
+Formulario con toggle entre **Iniciar sesión** (email + contraseña) y **Registrarse** (usuario + email + contraseña + confirmar contraseña). Conectado con la API: llama a `POST /api/auth/login` o `POST /api/auth/register`, guarda el JWT en `localStorage` y redirige al home. Los errores del servidor se muestran inline. Si ya hay sesión activa, redirige automáticamente al home.
+
+**Cuentas de prueba disponibles:**
+
+| Email | Contraseña | Plan |
+|---|---|---|
+| `demo@example.com` | `123456` | Gratis |
+| `premium@example.com` | `123456` | Premium |
 
 ---
 
@@ -200,6 +207,22 @@ await api.put('/rankings/123', updates)
 await api.del('/rankings/123')
 ```
 
+### Navbar
+
+La barra de navegación es consciente del estado de autenticación:
+
+- **Sin sesión** — muestra el enlace "Acceder". El botón "Crear" está oculto.
+- **Con sesión** — muestra el nombre de usuario (enlace a `/profile`) y el botón "Cerrar sesión". Al hacer logout redirige al home.
+
+### Protección de rutas
+
+El router usa dos guards:
+
+- **`PrivateRoute`** — si el usuario no está autenticado redirige a `/auth`. Aplicado a `/create`, `/edit/:id` y `/profile`.
+- **`PublicOnlyRoute`** — si el usuario ya tiene sesión redirige al home. Aplicado a `/auth`.
+
+Ambos guards esperan a que `isInitialized` sea `true` antes de actuar, evitando redirecciones incorrectas durante la restauración de la sesión.
+
 ### Contexts y estado global
 
 El árbol de providers en `App.tsx` sigue este orden (de exterior a interior):
@@ -214,7 +237,7 @@ ThemeProvider
 
 **`ThemeContext`** — Gestiona `'light' | 'dark'`. Al cambiar, añade/quita la clase `dark` en `<html>` y lo guarda en `localStorage`.
 
-**`AuthContext`** — Al montar comprueba si hay un token en `localStorage` y llama a `GET /api/auth/me` para restaurar la sesión. Expone `login(email, password)`, `register(username, email, password)` y `logout()`.
+**`AuthContext`** — Al montar comprueba si hay un token en `localStorage` y llama a `GET /api/auth/me` para restaurar la sesión. Expone `login(email, password)`, `register(username, email, password)` y `logout()`. El flag `isInitialized` evita flashes de redirección mientras se verifica el token al cargar la página.
 
 **`CategoryContext`** — Carga las categorías de `GET /api/categories` al montar. `addCategory` y `removeCategory` sincronizan con la API (requieren autenticación).
 
@@ -383,6 +406,9 @@ vercel --prod        # producción
 |---|---|
 | CRUD de rankings | Completo (frontend + backend + API) |
 | Autenticación JWT | Completo (registro, login, sesión persistente) |
+| Protección de rutas | Completo (PrivateRoute + PublicOnlyRoute) |
+| Navbar contextual | Completo (muestra usuario, logout, oculta "Crear" sin sesión) |
+| Rankings de ejemplo públicos | Completo (solo lectura para usuarios no autenticados) |
 | Categorías personalizadas | Completo (frontend + backend + API) |
 | Modo oscuro / claro | Completo |
 | Compartir rankings | Completo |
@@ -400,7 +426,6 @@ vercel --prod        # producción
 
 ### Prioridad media
 
-- **Protección de rutas en el frontend** — Las páginas `/create`, `/edit/:id` y `/profile` deberían redirigir a `/auth` si el usuario no está autenticado.
 - **Perfil de usuario** — La página `/profile` existe pero no muestra datos reales ni permite editar el perfil.
 - **Manejo de errores en la UI** — Mostrar mensajes de error cuando las llamadas a la API fallan en Home, CreateRanking o CategoryContext (ahora fallan silenciosamente).
 
