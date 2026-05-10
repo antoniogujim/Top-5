@@ -7,6 +7,7 @@ import ViewRanking from '../pages/ViewRanking'
 import Premium from '../pages/Premium'
 import Profile from '../pages/Profile'
 import Auth from '../pages/Auth'
+import NotFound from '../pages/NotFound'
 import { useAuth } from '../hooks/useAuth'
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -35,6 +36,7 @@ export function AppRouter() {
         <Route path="/premium"     element={<Premium />} />
         <Route path="/profile"     element={<PrivateRoute><Profile /></PrivateRoute>} />
         <Route path="/auth"        element={<PublicOnlyRoute><Auth /></PublicOnlyRoute>} />
+        <Route path="*"            element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   )

@@ -1,24 +1,26 @@
-import { useState, useRef, type RefObject } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 
 type Mode = 'login' | 'register'
 
 function Field({
-  label, type, placeholder, inputRef,
+  label, type, placeholder, value, onChange,
 }: {
   label: string
   type: string
   placeholder: string
-  inputRef: RefObject<HTMLInputElement>
+  value: string
+  onChange: (v: string) => void
 }) {
   return (
     <div className="flex flex-col gap-1">
       <label className="text-sm font-semibold dark:text-green-200">{label}</label>
       <input
-        ref={inputRef}
         type={type}
         placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
         required
         className="px-4 py-2 rounded-xl border border-green-200 dark:border-green-700 bg-white dark:bg-green-950 dark:text-green-50 outline-none focus:ring-2 focus:ring-green-400 placeholder:text-gray-300 dark:placeholder:text-green-800"
       />
@@ -29,32 +31,27 @@ function Field({
 export default function Auth() {
   const { login, register } = useAuth()
   const navigate = useNavigate()
-  const [mode, setMode] = useState<Mode>('login')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
 
-  const usernameRef = useRef<HTMLInputElement>(null!)
-  const emailRef    = useRef<HTMLInputElement>(null!)
-  const passwordRef = useRef<HTMLInputElement>(null!)
-  const confirmRef  = useRef<HTMLInputElement>(null!)
+  const [mode, setMode]         = useState<Mode>('login')
+  const [error, setError]       = useState('')
+  const [loading, setLoading]   = useState(false)
+  const [username, setUsername] = useState('')
+  const [email, setEmail]       = useState('')
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm]   = useState('')
 
   const handleSubmit = async (e: { preventDefault(): void }) => {
     e.preventDefault()
     setError('')
 
-    const email    = emailRef.current.value.trim()
-    const password = passwordRef.current.value
-
     if (mode === 'register') {
-      const username = usernameRef.current.value.trim()
-      const confirm  = confirmRef.current.value
       if (password !== confirm) {
         setError('Las contraseñas no coinciden')
         return
       }
       setLoading(true)
       try {
-        await register(username, email, password)
+        await register(username.trim(), email.trim(), password)
         navigate('/')
       } catch (err) {
         setError((err as Error).message)
@@ -64,7 +61,7 @@ export default function Auth() {
     } else {
       setLoading(true)
       try {
-        await login(email, password)
+        await login(email.trim(), password)
         navigate('/')
       } catch (err) {
         setError((err as Error).message)
@@ -110,12 +107,12 @@ export default function Auth() {
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         {mode === 'register' && (
-          <Field label="Nombre de usuario" type="text" placeholder="tunombre" inputRef={usernameRef} />
+          <Field label="Nombre de usuario" type="text"     placeholder="tunombre"    value={username} onChange={setUsername} />
         )}
-        <Field label="Email"      type="email"    placeholder="tu@email.com" inputRef={emailRef} />
-        <Field label="Contraseña" type="password" placeholder="••••••••"     inputRef={passwordRef} />
+        <Field label="Email"               type="email"    placeholder="tu@email.com" value={email}    onChange={setEmail} />
+        <Field label="Contraseña"          type="password" placeholder="••••••••"    value={password} onChange={setPassword} />
         {mode === 'register' && (
-          <Field label="Confirmar contraseña" type="password" placeholder="••••••••" inputRef={confirmRef} />
+          <Field label="Confirmar contraseña" type="password" placeholder="••••••••" value={confirm}  onChange={setConfirm} />
         )}
 
         {error && (

@@ -15,6 +15,7 @@ Aplicación web para crear, gestionar y compartir rankings personales de Top 5 e
 - [Planes: Gratis vs Premium](#planes-gratis-vs-premium)
 - [Instalación y desarrollo local](#instalación-y-desarrollo-local)
 - [Despliegue en Vercel](#despliegue-en-vercel)
+- [Documentación técnica](#documentación-técnica)
 - [Estado actual del proyecto](#estado-actual-del-proyecto)
 - [Pendiente](#pendiente)
 
@@ -79,8 +80,9 @@ Los rankings y categorías se persisten en la API REST. El tema (claro/oscuro) s
 │   │   ├── CreateRanking/        # Formulario crear / editar ranking
 │   │   ├── ViewRanking/          # Vista pública de un ranking concreto
 │   │   ├── Premium/              # Comparativa de planes y precio
-│   │   ├── Auth/                 # Login y registro (conectado con la API)
-│   │   └── Profile/              # Perfil del usuario
+│   │   ├── Auth/                 # Login y registro (controlado con useState)
+│   │   ├── Profile/              # Perfil del usuario
+│   │   └── NotFound/             # Página 404 (ruta catch-all *)
 │   ├── components/
 │   │   ├── layout/
 │   │   │   └── Navbar.tsx        # Barra de navegación principal
@@ -96,8 +98,8 @@ Los rankings y categorías se persisten en la API REST. El tema (claro/oscuro) s
 │   │   └── ToastContext.tsx      # Notificaciones de error/éxito (auto-dismiss 4 s)
 │   ├── hooks/
 │   │   ├── useAuth.ts            # Acceso a AuthContext
-│   │   ├── useRankings.ts        # Acceso a RankingContext
-│   │   └── useShare.ts           # Web Share API con fallback a clipboard
+│   │   ├── useRankings.ts        # Estado de rankings con useMemo en canCreate
+│   │   └── useShare.ts           # Web Share API con fallback a clipboard (useCallback)
 │   ├── types/
 │   │   └── index.ts              # Interfaces: User, Ranking, RankingItem, Category
 │   └── utils/
@@ -124,6 +126,13 @@ Los rankings y categorías se persisten en la API REST. El tema (claro/oscuro) s
 │           ├── rankings.service.ts  # Rankings en memoria (pendiente: base de datos)
 │           └── categories.service.ts
 │
+├── docs/                         # Documentación técnica
+│   ├── design.md                 # Arquitectura, contratos de API y flujo de datos
+│   ├── components.md             # Props, comportamiento y uso de cada componente
+│   ├── hooks.md                  # Hooks nativos y custom hooks
+│   ├── context.md                # Contextos globales y árbol de providers
+│   ├── routing.md                # Mapa de rutas y guards
+│   └── forms.md                  # Formularios controlados y validación
 ├── public/                       # Assets estáticos servidos por Vite
 ├── vercel.json                   # Configuración de despliegue (frontend + serverless)
 ├── package.json                  # Dependencias y scripts del frontend
@@ -186,7 +195,11 @@ Página de solo lectura con la información de la cuenta autenticada:
 
 ### `/auth` — Autenticación
 
-Formulario con toggle entre **Iniciar sesión** (email + contraseña) y **Registrarse** (usuario + email + contraseña + confirmar contraseña). Conectado con la API: llama a `POST /api/auth/login` o `POST /api/auth/register`, guarda el JWT en `localStorage` y redirige al home. Los errores del servidor se muestran inline. Si ya hay sesión activa, redirige automáticamente al home.
+Formulario con toggle entre **Iniciar sesión** (email + contraseña) y **Registrarse** (usuario + email + contraseña + confirmar contraseña). Todos los inputs son **controlados** (`value` + `onChange` con `useState`). Conectado con la API: llama a `POST /api/auth/login` o `POST /api/auth/register`, guarda el JWT en `localStorage` y redirige al home. Los errores del servidor se muestran inline. Si ya hay sesión activa, redirige automáticamente al home.
+
+### `*` — 404
+
+Página de error para cualquier URL no reconocida. Muestra el código 404, un mensaje y un enlace para volver al home. Activada por la ruta catch-all `path="*"` al final del router.
 
 **Cuentas de prueba disponibles:**
 
@@ -292,6 +305,8 @@ Abstrae el comportamiento de compartir:
 2. Si `navigator.share` existe (móviles, Safari), llama a la Web Share API nativa.
 3. Si no, copia la URL con `navigator.clipboard.writeText` y activa el estado `copied` durante 1,5 segundos para mostrar "¡Copiado!" en el botón.
 
+La función `share` está envuelta en `useCallback` para mantener una referencia estable entre renders.
+
 ---
 
 ## API REST (backend)
@@ -346,6 +361,21 @@ canCreate(userId: string, isPremium: boolean): boolean {
 ```
 
 Si `canCreate` devuelve `false`, el backend responde `403` y el frontend redirige a `/premium` (tanto desde `/create` como desde el botón de perfil y el enlace de la Navbar).
+
+---
+
+## Documentación técnica
+
+La carpeta `docs/` contiene la documentación técnica detallada del proyecto:
+
+| Archivo | Contenido |
+|---|---|
+| [`docs/design.md`](docs/design.md) | Diagrama de flujo de datos, contratos de la API (request/response), modelo de persistencia y decisiones de arquitectura |
+| [`docs/components.md`](docs/components.md) | Props tipadas, comportamiento y ejemplos de uso de cada componente |
+| [`docs/hooks.md`](docs/hooks.md) | Hooks nativos (`useState`, `useEffect`, `useMemo`, `useCallback`) y custom hooks |
+| [`docs/context.md`](docs/context.md) | Contextos globales, árbol de providers y cuándo usar Context API |
+| [`docs/routing.md`](docs/routing.md) | Mapa de rutas, guards (`PrivateRoute`, `PublicOnlyRoute`) y mecanismos de navegación |
+| [`docs/forms.md`](docs/forms.md) | Formularios controlados, gestión de estado de inputs y validación |
 
 ---
 
@@ -430,6 +460,9 @@ vercel --prod        # producción
 | Compartir rankings | Completo |
 | Vista pública de ranking | Completo |
 | Manejo de errores en la UI | Completo (toasts en todas las operaciones de API) |
+| Página 404 | Completo (ruta catch-all con enlace al home) |
+| Formularios controlados | Completo (Auth y CreateRanking con useState + validación inline) |
+| Documentación técnica | Completo (6 documentos en docs/) |
 | Plan Premium / pagos | UI lista — lógica pendiente |
 
 ---
