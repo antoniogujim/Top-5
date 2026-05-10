@@ -4,13 +4,19 @@ import { RankingCard } from '../../components/ranking/RankingCard'
 
 export default function Home() {
   const navigate = useNavigate()
-  const { rankings, removeRanking } = useRankings()
+  const { rankings, removeRanking, isLoading } = useRankings()
 
-  const handleEdit   = (id: string) => navigate(`/edit/${id}`)
+  const handleEdit = (id: string) => navigate(`/edit/${id}`)
+
   return (
     <div className="p-8">
       <h1 className="text-2xl font-bold mb-6 dark:text-green-50">Mis Rankings</h1>
-      {rankings.length === 0 ? (
+
+      {isLoading ? (
+        <div className="flex justify-center py-16">
+          <span className="w-8 h-8 rounded-full border-4 border-green-200 border-t-green-600 animate-spin" />
+        </div>
+      ) : rankings.length === 0 ? (
         <p className="text-gray-500 dark:text-green-400">Aún no tienes rankings. ¡Crea uno!</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -23,6 +23,7 @@ export default function CreateRanking() {
     existing ? EMPTY_ITEMS.map((_, i) => existing.items[i]?.title ?? '') : EMPTY_ITEMS
   )
   const [errors, setErrors]     = useState<Record<string, string>>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
   const [newLabel, setNewLabel] = useState('')
 
@@ -60,15 +61,19 @@ export default function CreateRanking() {
       .map((t, i) => ({ position: i + 1, title: t.trim() }))
       .filter((item) => item.title !== '')
 
-    if (isEditing) {
-      const ok = await updateRanking(id!, { title: title.trim(), category, items: itemsFiltered })
-      if (!ok) return
-    } else {
-      const ok = await addRanking({ title: title.trim(), category, isPublic: true, items: itemsFiltered })
-      if (!ok) return
+    setIsSubmitting(true)
+    try {
+      if (isEditing) {
+        const ok = await updateRanking(id!, { title: title.trim(), category, items: itemsFiltered })
+        if (!ok) return
+      } else {
+        const ok = await addRanking({ title: title.trim(), category, isPublic: true, items: itemsFiltered })
+        if (!ok) return
+      }
+      navigate('/')
+    } finally {
+      setIsSubmitting(false)
     }
-
-    navigate('/')
   }
 
   return (
@@ -196,9 +201,10 @@ export default function CreateRanking() {
           </button>
           <button
             type="submit"
-            className="flex-1 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-medium"
+            disabled={isSubmitting}
+            className="flex-1 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium"
           >
-            {isEditing ? 'Guardar cambios' : 'Crear ranking'}
+            {isSubmitting ? 'Guardando…' : isEditing ? 'Guardar cambios' : 'Crear ranking'}
           </button>
         </div>
 

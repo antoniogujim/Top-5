@@ -208,7 +208,7 @@ Todas las rutas tienen el prefijo `/api`. Las marcadas con `(auth)` requieren el
 
 **Respuesta `200`:** objeto `Ranking` actualizado.
 
-**Errores:** `404` si no existe · `403` si el ranking no pertenece al usuario autenticado.
+**Errores:** `400` si algún campo tiene tipo incorrecto · `404` si no existe · `403` si el ranking no pertenece al usuario autenticado.
 
 ---
 

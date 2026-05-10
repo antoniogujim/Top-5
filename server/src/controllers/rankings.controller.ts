@@ -20,6 +20,19 @@ export const rankingsController = {
   },
 
   create(req: Request, res: Response): void {
+    const { title, category, items } = req.body
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      res.status(400).json({ message: 'title is required' })
+      return
+    }
+    if (!category || typeof category !== 'string' || !category.trim()) {
+      res.status(400).json({ message: 'category is required' })
+      return
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      res.status(400).json({ message: 'items must be a non-empty array' })
+      return
+    }
     try {
       const userId = req.userId!
       const user = authService.getUserById(userId)
@@ -39,6 +52,19 @@ export const rankingsController = {
   },
 
   update(req: Request, res: Response): void {
+    const { title, category, items } = req.body
+    if (title !== undefined && (typeof title !== 'string' || !title.trim())) {
+      res.status(400).json({ message: 'title must be a non-empty string' })
+      return
+    }
+    if (category !== undefined && (typeof category !== 'string' || !category.trim())) {
+      res.status(400).json({ message: 'category must be a non-empty string' })
+      return
+    }
+    if (items !== undefined && (!Array.isArray(items) || items.length === 0)) {
+      res.status(400).json({ message: 'items must be a non-empty array' })
+      return
+    }
     try {
       const userId = req.userId!
       const ranking = rankingsService.update(req.params.id, userId, req.body)

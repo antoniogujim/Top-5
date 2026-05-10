@@ -10,24 +10,28 @@ export interface CategoryItem {
 
 interface CategoryContextType {
   categories: CategoryItem[]
+  isLoading: boolean
   addCategory: (label: string) => Promise<void>
   removeCategory: (value: string) => Promise<void>
 }
 
 const CategoryContext = createContext<CategoryContextType>({
   categories: [],
+  isLoading: false,
   addCategory: async () => {},
   removeCategory: async () => {},
 })
 
 export function CategoryProvider({ children }: { children: ReactNode }) {
   const [categories, setCategories] = useState<CategoryItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const { showError } = useToast()
 
   useEffect(() => {
     api.get<CategoryItem[]>('/categories')
       .then(setCategories)
       .catch(() => { showError('No se pudieron cargar las categorías') })
+      .finally(() => setIsLoading(false))
   // showError is stable, safe to omit from deps
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -55,7 +59,7 @@ export function CategoryProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <CategoryContext.Provider value={{ categories, addCategory, removeCategory }}>
+    <CategoryContext.Provider value={{ categories, isLoading, addCategory, removeCategory }}>
       {children}
     </CategoryContext.Provider>
   )

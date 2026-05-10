@@ -87,7 +87,7 @@ Los rankings y categorías se persisten en la API REST. El tema (claro/oscuro) s
 │   │   ├── layout/
 │   │   │   └── Navbar.tsx        # Barra de navegación principal
 │   │   ├── ranking/
-│   │   │   └── RankingCard.tsx   # Tarjeta con Top 5, acciones y modal de confirmación
+│   │   │   └── RankingCard.tsx   # Tarjeta con Top 5; isOwner determinado internamente vía useAuth()
 │   │   └── ui/
 │   │       └── Modal.tsx         # Modal reutilizable de confirmación
 │   ├── context/
@@ -229,6 +229,20 @@ await api.put('/rankings/123', updates)
 await api.del('/rankings/123')
 ```
 
+### `RankingCard`
+
+El componente determina la propiedad del ranking internamente llamando a `useAuth()` y comparando `user.id === ranking.userId`. Las acciones de editar y eliminar sólo se renderizan si `isOwner` es `true`; el botón compartir siempre es visible. Las props que recibe son:
+
+```ts
+interface RankingCardProps {
+  ranking: Ranking
+  onEdit:  (id: string) => void
+  onDelete: (id: string) => void
+}
+```
+
+Internamente gestiona el estado `showConfirm` (boolean) para el modal de confirmación de borrado y el estado `copied` para el feedback visual del botón compartir.
+
 ### Navbar
 
 La barra de navegación es consciente del estado de autenticación y se adapta al tamaño de pantalla:
@@ -266,9 +280,9 @@ ToastProvider
 
 **`AuthContext`** — Al montar comprueba si hay un token en `localStorage` y llama a `GET /api/auth/me` para restaurar la sesión. Expone `login(email, password)`, `register(username, email, password)` y `logout()`. El flag `isInitialized` evita flashes de redirección mientras se verifica el token al cargar la página.
 
-**`CategoryContext`** — Carga las categorías de `GET /api/categories` al montar. `addCategory` y `removeCategory` sincronizan con la API. Cualquier fallo de red o del servidor muestra un toast de error; el estado local no se modifica si la operación no llega a completarse.
+**`CategoryContext`** — Carga las categorías (`CategoryItem[]`) de `GET /api/categories` al montar. Expone `isLoading` para que los consumidores puedan mostrar un estado de carga. `addCategory` deriva el `value` en kebab-case a partir del `label` introducido por el usuario. `addCategory` y `removeCategory` sincronizan con la API. Cualquier fallo de red o del servidor muestra un toast de error; el estado local no se modifica si la operación no llega a completarse.
 
-**`RankingContext`** — Carga rankings de `GET /api/rankings` al montar y cada vez que cambia el estado de autenticación. Con token devuelve los rankings del usuario; sin token devuelve únicamente los rankings de demo. Expone `addRanking`, `removeRanking` y `updateRanking` (todos devuelven `boolean` para que el llamador sepa si tuvo éxito). Cualquier fallo de API dispara un toast de error.
+**`RankingContext`** — Carga rankings de `GET /api/rankings` al montar y cada vez que cambia el estado de autenticación. Con token devuelve los rankings del usuario; sin token devuelve únicamente los rankings de demo. Expone `isLoading` (usado por `Home` para mostrar un spinner durante la carga inicial), `addRanking`, `removeRanking` y `updateRanking` (todos devuelven `boolean` para que el llamador sepa si tuvo éxito). Cualquier fallo de API dispara un toast de error.
 
 ### Modelo de datos
 
@@ -294,6 +308,11 @@ interface RankingItem {
   position: number    // 1–5
   title: string
   description?: string
+}
+
+interface CategoryItem {
+  value: string  // kebab-case (ej: "video-juegos")
+  label: string  // nombre legible (ej: "Videojuegos")
 }
 ```
 
@@ -335,8 +354,8 @@ El servidor Express expone tres grupos de rutas bajo el prefijo `/api`. Las ruta
 
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
-| `GET` | `/api/categories` | No | Lista todas las categorías |
-| `POST` | `/api/categories` | Sí | Crea una categoría nueva |
+| `GET` | `/api/categories` | No | Lista todas las categorías → `CategoryItem[]` (`{ value, label }`) |
+| `POST` | `/api/categories` | Sí | Crea una categoría nueva (`{ label }` en el body) |
 | `DELETE` | `/api/categories/:value` | Sí | Elimina una categoría |
 
 ### Middlewares
@@ -371,6 +390,7 @@ La carpeta `docs/` contiene la documentación técnica detallada del proyecto:
 | Archivo | Contenido |
 |---|---|
 | [`docs/design.md`](docs/design.md) | Diagrama de flujo de datos, contratos de la API (request/response), modelo de persistencia y decisiones de arquitectura |
+| [`docs/api-client.md`](docs/api-client.md) | Wrapper `src/api/client.ts`, contrato de tipos TypeScript y gestión de los tres estados de red (loading / data / error) |
 | [`docs/components.md`](docs/components.md) | Props tipadas, comportamiento y ejemplos de uso de cada componente |
 | [`docs/hooks.md`](docs/hooks.md) | Hooks nativos (`useState`, `useEffect`, `useMemo`, `useCallback`) y custom hooks |
 | [`docs/context.md`](docs/context.md) | Contextos globales, árbol de providers y cuándo usar Context API |
@@ -459,10 +479,11 @@ vercel --prod        # producción
 | Modo oscuro / claro | Completo |
 | Compartir rankings | Completo |
 | Vista pública de ranking | Completo |
+| Estados de red (loading / data / error) | Completo (spinner en Home, botón bloqueado en formularios, toasts de error) |
 | Manejo de errores en la UI | Completo (toasts en todas las operaciones de API) |
 | Página 404 | Completo (ruta catch-all con enlace al home) |
 | Formularios controlados | Completo (Auth y CreateRanking con useState + validación inline) |
-| Documentación técnica | Completo (6 documentos en docs/) |
+| Documentación técnica | Completo (7 documentos en docs/) |
 | Plan Premium / pagos | UI lista — lógica pendiente |
 
 ---
