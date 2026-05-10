@@ -92,7 +92,8 @@ Los rankings y categorías se persisten en la API REST. El tema (claro/oscuro) s
 │   │   ├── AuthContext.tsx       # JWT en localStorage, restaura sesión al recargar
 │   │   ├── RankingContext.tsx    # CRUD de rankings vía API REST
 │   │   ├── CategoryContext.tsx   # Categorías vía API REST
-│   │   └── ThemeContext.tsx      # Modo claro/oscuro + persistencia en localStorage
+│   │   ├── ThemeContext.tsx      # Modo claro/oscuro + persistencia en localStorage
+│   │   └── ToastContext.tsx      # Notificaciones de error/éxito (auto-dismiss 4 s)
 │   ├── hooks/
 │   │   ├── useAuth.ts            # Acceso a AuthContext
 │   │   ├── useRankings.ts        # Acceso a RankingContext
@@ -238,20 +239,23 @@ Ambos guards esperan a que `isInitialized` sea `true` antes de actuar, evitando 
 El árbol de providers en `App.tsx` sigue este orden (de exterior a interior):
 
 ```
-ThemeProvider
-  └── AuthProvider
-        └── CategoryProvider
-              └── RankingProvider
-                    └── AppRouter
+ToastProvider
+  └── ThemeProvider
+        └── AuthProvider
+              └── CategoryProvider
+                    └── RankingProvider
+                          └── AppRouter
 ```
+
+**`ToastContext`** — Sistema de notificaciones transitorias (toasts). Expone `showError(msg)` y `showSuccess(msg)`. Cada toast se descarta automáticamente a los 4 segundos o al pulsarlo. Se renderiza fijo en la esquina inferior-derecha, encima del resto de la UI. Al estar en el nivel más externo, cualquier context o página puede consumirlo con `useToast()`.
 
 **`ThemeContext`** — Gestiona `'light' | 'dark'`. Al cambiar, añade/quita la clase `dark` en `<html>` y lo guarda en `localStorage`.
 
 **`AuthContext`** — Al montar comprueba si hay un token en `localStorage` y llama a `GET /api/auth/me` para restaurar la sesión. Expone `login(email, password)`, `register(username, email, password)` y `logout()`. El flag `isInitialized` evita flashes de redirección mientras se verifica el token al cargar la página.
 
-**`CategoryContext`** — Carga las categorías de `GET /api/categories` al montar. `addCategory` y `removeCategory` sincronizan con la API (requieren autenticación).
+**`CategoryContext`** — Carga las categorías de `GET /api/categories` al montar. `addCategory` y `removeCategory` sincronizan con la API. Cualquier fallo de red o del servidor muestra un toast de error; el estado local no se modifica si la operación no llega a completarse.
 
-**`RankingContext`** — Carga rankings de `GET /api/rankings` al montar y cada vez que cambia el estado de autenticación. Con token devuelve los rankings del usuario; sin token devuelve únicamente los rankings de demo (no los de otros usuarios). Expone `addRanking`, `removeRanking` y `updateRanking` (todos asíncronos).
+**`RankingContext`** — Carga rankings de `GET /api/rankings` al montar y cada vez que cambia el estado de autenticación. Con token devuelve los rankings del usuario; sin token devuelve únicamente los rankings de demo. Expone `addRanking`, `removeRanking` y `updateRanking` (todos devuelven `boolean` para que el llamador sepa si tuvo éxito). Cualquier fallo de API dispara un toast de error.
 
 ### Modelo de datos
 
@@ -425,6 +429,7 @@ vercel --prod        # producción
 | Modo oscuro / claro | Completo |
 | Compartir rankings | Completo |
 | Vista pública de ranking | Completo |
+| Manejo de errores en la UI | Completo (toasts en todas las operaciones de API) |
 | Plan Premium / pagos | UI lista — lógica pendiente |
 
 ---
@@ -438,7 +443,6 @@ vercel --prod        # producción
 
 ### Prioridad media
 
-- **Manejo de errores en la UI** — Mostrar mensajes de error cuando las llamadas a la API fallan en Home, CreateRanking o CategoryContext (ahora fallan silenciosamente).
 - **Edición de perfil** — La página `/profile` muestra los datos del usuario pero no permite editarlos (requiere endpoint `PUT /api/auth/me` en el backend).
 
 ### Prioridad baja

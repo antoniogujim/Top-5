@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '../api/client'
+import { useToast } from './ToastContext'
 
 export interface CategoryItem {
   value: string
@@ -21,11 +22,14 @@ const CategoryContext = createContext<CategoryContextType>({
 
 export function CategoryProvider({ children }: { children: ReactNode }) {
   const [categories, setCategories] = useState<CategoryItem[]>([])
+  const { showError } = useToast()
 
   useEffect(() => {
     api.get<CategoryItem[]>('/categories')
       .then(setCategories)
-      .catch(() => {})
+      .catch(() => { showError('No se pudieron cargar las categorías') })
+  // showError is stable, safe to omit from deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const addCategory = async (label: string): Promise<void> => {
@@ -33,13 +37,21 @@ export function CategoryProvider({ children }: { children: ReactNode }) {
     if (!trimmed) return
     const value = trimmed.toLowerCase().replace(/\s+/g, '-')
     if (categories.find((c) => c.value === value)) return
-    const created = await api.post<CategoryItem>('/categories', { label: trimmed })
-    setCategories((prev) => [...prev, created])
+    try {
+      const created = await api.post<CategoryItem>('/categories', { label: trimmed })
+      setCategories((prev) => [...prev, created])
+    } catch {
+      showError('No se pudo agregar la categoría')
+    }
   }
 
   const removeCategory = async (value: string): Promise<void> => {
-    await api.del(`/categories/${value}`)
-    setCategories((prev) => prev.filter((c) => c.value !== value))
+    try {
+      await api.del(`/categories/${value}`)
+      setCategories((prev) => prev.filter((c) => c.value !== value))
+    } catch {
+      showError('No se pudo eliminar la categoría')
+    }
   }
 
   return (

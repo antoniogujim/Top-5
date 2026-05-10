@@ -61,7 +61,8 @@ export default function CreateRanking() {
       .filter((item) => item.title !== '')
 
     if (isEditing) {
-      await updateRanking(id!, { title: title.trim(), category, items: itemsFiltered })
+      const ok = await updateRanking(id!, { title: title.trim(), category, items: itemsFiltered })
+      if (!ok) return
     } else {
       const ok = await addRanking({ title: title.trim(), category, isPublic: true, items: itemsFiltered })
       if (!ok) return
