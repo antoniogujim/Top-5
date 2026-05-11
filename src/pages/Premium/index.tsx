@@ -7,7 +7,7 @@ const FEATURES = [
   { label: 'Rankings guardados',   free: 'Hasta 10',    premium: 'Ilimitados' },
   { label: 'Top 5 por ranking',    free: true,          premium: true },
   { label: 'Compartir rankings',   free: true,          premium: true },
-  { label: 'Categorías propias',   free: true,          premium: true },
+  { label: 'Gestionar categorías', free: false,         premium: true },
   { label: 'Acceso anticipado',    free: false,         premium: true },
 ]
 
@@ -120,6 +120,7 @@ export default function Premium() {
                 <p>Al cancelar perderás inmediatamente:</p>
                 <ul className="mt-2 space-y-1 list-disc list-inside">
                   <li>Rankings ilimitados (solo podrás conservar los 10 primeros)</li>
+                  <li>Gestión de categorías (añadir y eliminar)</li>
                   <li>Acceso anticipado a nuevas funciones</li>
                 </ul>
                 <p className="mt-2">¿Seguro que quieres volver al plan Gratis?</p>

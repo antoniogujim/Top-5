@@ -1,16 +1,44 @@
 import { useNavigate } from 'react-router-dom'
 import { useRankings } from '../../context/RankingContext'
+import { useCategories } from '../../context/CategoryContext'
 import { RankingCard } from '../../components/ranking/RankingCard'
 
 export default function Home() {
   const navigate = useNavigate()
-  const { rankings, removeRanking, isLoading, page, totalPages, goToPage } = useRankings()
+  const { rankings, removeRanking, isLoading, page, totalPages, goToPage, categoryFilter, setCategoryFilter } = useRankings()
+  const { categories } = useCategories()
 
   const handleEdit = (id: string) => navigate(`/edit/${id}`)
 
   return (
     <div className="p-8">
       <h1 className="text-2xl font-bold mb-6 dark:text-green-50">Mis Rankings</h1>
+
+      <div className="flex flex-wrap gap-2 mb-6">
+        <button
+          onClick={() => setCategoryFilter('')}
+          className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+            categoryFilter === ''
+              ? 'bg-green-600 text-white border-green-600'
+              : 'border-green-200 dark:border-green-700 text-gray-600 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900'
+          }`}
+        >
+          Todas
+        </button>
+        {categories.map((cat) => (
+          <button
+            key={cat.value}
+            onClick={() => setCategoryFilter(cat.value)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+              categoryFilter === cat.value
+                ? 'bg-green-600 text-white border-green-600'
+                : 'border-green-200 dark:border-green-700 text-gray-600 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900'
+            }`}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
 
       {isLoading ? (
         <div className="flex justify-center py-16">

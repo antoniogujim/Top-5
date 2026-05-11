@@ -1,5 +1,7 @@
 import type { Request, Response } from 'express'
 import { categoriesService } from '../services/categories.service'
+import { rankingsService } from '../services/rankings.service'
+import { authService } from '../services/auth.service'
 
 export const categoriesController = {
   getAll(_req: Request, res: Response): void {
@@ -7,6 +9,11 @@ export const categoriesController = {
   },
 
   create(req: Request, res: Response): void {
+    const user = authService.getUserById(req.userId!)
+    if (!user?.isPremium) {
+      res.status(403).json({ message: 'Premium required to add categories' })
+      return
+    }
     try {
       const { label } = req.body
       if (!label) {
@@ -21,7 +28,13 @@ export const categoriesController = {
   },
 
   remove(req: Request, res: Response): void {
+    const user = authService.getUserById(req.userId!)
+    if (!user?.isPremium) {
+      res.status(403).json({ message: 'Premium required to remove categories' })
+      return
+    }
     try {
+      rankingsService.removeByCategory(req.userId!, req.params.value)
       categoriesService.remove(req.params.value)
       res.status(204).send()
     } catch (err) {

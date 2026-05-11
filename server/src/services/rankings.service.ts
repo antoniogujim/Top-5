@@ -50,13 +50,15 @@ const rankings: Ranking[] = [
 ]
 
 export const rankingsService = {
-  getPublic(page: number, limit: number): { data: Ranking[]; total: number } {
-    const all = rankings.filter((r) => r.isPublic)
+  getPublic(page: number, limit: number, category?: string): { data: Ranking[]; total: number } {
+    let all = rankings.filter((r) => r.isPublic)
+    if (category) all = all.filter((r) => r.category === category)
     return { data: all.slice((page - 1) * limit, page * limit), total: all.length }
   },
 
-  getByUser(userId: string, page: number, limit: number): { data: Ranking[]; total: number } {
-    const all = rankings.filter((r) => r.userId === userId)
+  getByUser(userId: string, page: number, limit: number, category?: string): { data: Ranking[]; total: number } {
+    let all = rankings.filter((r) => r.userId === userId)
+    if (category) all = all.filter((r) => r.category === category)
     return { data: all.slice((page - 1) * limit, page * limit), total: all.length }
   },
 
@@ -93,6 +95,14 @@ export const rankingsService = {
     if (index === -1) throw new Error('Ranking not found')
     if (rankings[index].userId !== userId) throw new Error('Forbidden')
     rankings.splice(index, 1)
+  },
+
+  removeByCategory(userId: string, category: string): void {
+    const indices = rankings
+      .map((r, i) => (r.userId === userId && r.category === category ? i : -1))
+      .filter((i) => i !== -1)
+      .reverse()
+    indices.forEach((i) => rankings.splice(i, 1))
   },
 
   trimToLimit(userId: string, limit: number): number {

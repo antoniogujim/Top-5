@@ -34,10 +34,11 @@ Aplicación web para crear, gestionar y compartir rankings personales de Top 5 e
 2. Ver todos sus rankings paginados (9 por página) en una cuadrícula responsiva desde la página principal.
 3. Editar o eliminar cualquier ranking (con confirmación modal antes de borrar).
 4. Compartir un ranking público: si el navegador soporta la Web Share API, abre el diálogo nativo del sistema; si no, copia el enlace directo al portapapeles y muestra el texto "¡Copiado!". Los rankings privados no muestran el botón compartir.
-5. Añadir o quitar categorías personalizadas directamente desde el formulario de creación.
-6. Cambiar entre modo claro y modo oscuro, que se recuerda entre sesiones.
-7. Registrarse e iniciar sesión con email y contraseña — el JWT se persiste en `localStorage` y la sesión se restaura automáticamente al recargar.
-8. Activar o cancelar el plan Premium directamente desde la página `/premium`, con confirmación modal al cancelar y eliminación automática de rankings sobrantes si se supera el límite gratuito.
+5. Añadir o quitar categorías personalizadas directamente desde el formulario de creación (solo usuarios Premium). Los usuarios free ven un botón "Premium" que redirige a `/premium`. Al eliminar una categoría se muestra un modal de confirmación que avisa de que todos los rankings con esa categoría serán eliminados también. El botón de borrado desaparece cuando solo queda una categoría.
+6. Filtrar los rankings de la página principal por categoría mediante botones de selección rápida ("Todas" + una por categoría). El filtrado es server-side y respeta la paginación existente.
+7. Cambiar entre modo claro y modo oscuro, que se recuerda entre sesiones.
+8. Registrarse e iniciar sesión con email y contraseña — el JWT se persiste en `localStorage` y la sesión se restaura automáticamente al recargar.
+9. Activar o cancelar el plan Premium directamente desde la página `/premium`, con confirmación modal al cancelar y eliminación automática de rankings sobrantes si se supera el límite gratuito.
 
 Los rankings y categorías se persisten en la API REST. El tema (claro/oscuro) se guarda en `localStorage`.
 
@@ -156,16 +157,17 @@ Los rankings y categorías se persisten en la API REST. El tema (claro/oscuro) s
   - **Editar** → navega a `/edit/:id` con el formulario pre-relleno.
   - **Compartir** → usa la Web Share API si está disponible o copia el enlace `/ranking/:id` al portapapeles. Solo visible en rankings públicos.
   - **Eliminar** → abre un `Modal` de confirmación antes de borrar definitivamente (llama a `DELETE /api/rankings/:id`).
+- **Filtro por categoría** — fila de botones encima de la cuadrícula: "Todas" más uno por cada categoría disponible. Al seleccionar uno, el contexto pasa `category=<value>` como query param al backend y reinicia la paginación a la página 1. El filtro activo se resalta en verde. El spinner de carga se muestra al cambiar de filtro.
 - **Paginación** — controles "← Anterior / Siguiente →" con indicador de página actual. Solo aparecen si hay más de una página.
 
-Si no hay rankings propios, se muestra un mensaje de estado vacío.
+Si no hay rankings propios (o ninguno coincide con el filtro activo), se muestra un mensaje de estado vacío.
 
 ### `/create` — Crear ranking
 
 Formulario con cuatro secciones:
 
 1. **Título** — campo de texto libre, obligatorio.
-2. **Categoría** — se muestra como chips/píldoras seleccionables. Se puede añadir una categoría nueva pulsando `+`, escribir el nombre y confirmar con `Enter` o `✓`. También se puede eliminar cualquier categoría con la `×` de cada chip.
+2. **Categoría** — se muestra como chips/píldoras seleccionables. Se puede añadir una categoría nueva pulsando `+`, escribir el nombre y confirmar con `Enter` o `✓`. También se puede eliminar cualquier categoría con la `×` de cada chip; al pulsar "×" se abre un modal de confirmación que avisa de que todos los rankings con esa categoría serán eliminados. Cuando solo queda una categoría, la `×` desaparece para evitar dejar el formulario sin opciones válidas.
 3. **Visibilidad** — toggle en línea con etiqueta "Público / Privado". Público por defecto. Los rankings privados muestran un badge "Privado" en la tarjeta y en la vista de detalle, y no tienen botón compartir.
 4. **Top 5** — cinco campos numerados. La posición 1 es obligatoria; las demás son opcionales. Los campos vacíos se descartan al guardar.
 
@@ -188,7 +190,7 @@ Tabla comparativa entre el plan **Gratis** y **Premium**:
 | Rankings guardados | Hasta 10 | Ilimitados |
 | Top 5 por ranking | Sí | Sí |
 | Compartir rankings | Sí | Sí |
-| Categorías propias | Sí | Sí |
+| Gestionar categorías | No | Sí |
 | Acceso anticipado | No | Sí |
 
 Precio estimado: **2,99 € / mes**.
@@ -294,7 +296,7 @@ ToastProvider
 
 **`CategoryContext`** — Carga las categorías (`CategoryItem[]`) de `GET /api/categories` al montar. Expone `isLoading` para que los consumidores puedan mostrar un estado de carga. `addCategory` deriva el `value` en kebab-case a partir del `label` introducido por el usuario. `addCategory` y `removeCategory` sincronizan con la API. Cualquier fallo de red o del servidor muestra un toast de error; el estado local no se modifica si la operación no llega a completarse.
 
-**`RankingContext`** — Carga rankings de `GET /api/rankings?page=N&limit=9` al montar y cada vez que cambia `isAuthenticated`, `user.isPremium` o la página activa. Con token devuelve los rankings del usuario; sin token devuelve únicamente los rankings de demo. La respuesta paginada `{ data, total, page, pages }` alimenta el estado `rankings`, `total`, `page` y `totalPages`. Expone `goToPage(n)` para navegar entre páginas y un `fetchKey` interno que fuerza un refetch real tras cada mutación (crear, borrar), garantizando que la lista refleja el estado del servidor sin recargar. `canCreate` se calcula sobre `total` (no sobre `rankings.length`) para ser correcto con cualquier página activa.
+**`RankingContext`** — Carga rankings de `GET /api/rankings?page=N&limit=9[&category=value]` al montar y cada vez que cambia `isAuthenticated`, `user.isPremium`, la página activa o el filtro de categoría. Con token devuelve los rankings del usuario; sin token devuelve únicamente los rankings de demo. La respuesta paginada `{ data, total, page, pages }` alimenta el estado `rankings`, `total`, `page` y `totalPages`. Expone `goToPage(n)` para navegar entre páginas, `setCategoryFilter(cat)` para filtrar por categoría (resetea a página 1 y activa el spinner), `refetch()` para forzar una recarga desde fuera del contexto (usado tras borrar una categoría en cascada) y un `fetchKey` interno que fuerza un refetch real tras cada mutación (crear, borrar), garantizando que la lista refleja el estado del servidor sin recargar. `canCreate` se calcula sobre `total` (no sobre `rankings.length`) para ser correcto con cualquier página activa.
 
 ### Modelo de datos
 
@@ -359,7 +361,7 @@ El servidor Express expone tres grupos de rutas bajo el prefijo `/api`. Las ruta
 
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
-| `GET` | `/api/rankings?page=1&limit=9` | Opcional | Con token → rankings del usuario; sin token → rankings públicos. Devuelve `{ data, total, page, pages }` |
+| `GET` | `/api/rankings?page=1&limit=9[&category=value]` | Opcional | Con token → rankings del usuario; sin token → rankings públicos. El param `category` filtra por categoría (server-side). Devuelve `{ data, total, page, pages }` |
 | `GET` | `/api/rankings/:id` | No | Detalle de un ranking concreto |
 | `POST` | `/api/rankings` | Sí | Crea un ranking |
 | `PUT` | `/api/rankings/:id` | Sí | Actualiza un ranking (solo el propietario) |
@@ -371,7 +373,7 @@ El servidor Express expone tres grupos de rutas bajo el prefijo `/api`. Las ruta
 |---|---|---|---|
 | `GET` | `/api/categories` | No | Lista todas las categorías → `CategoryItem[]` (`{ value, label }`) |
 | `POST` | `/api/categories` | Sí | Crea una categoría nueva (`{ label }` en el body) |
-| `DELETE` | `/api/categories/:value` | Sí | Elimina una categoría |
+| `DELETE` | `/api/categories/:value` | Sí | Elimina una categoría y en cascada todos los rankings del usuario autenticado que la usaban |
 
 ### Middlewares
 
@@ -504,7 +506,8 @@ vercel --prod        # producción
 | Navbar límite de plan | Completo ("Crear" pasa a "Mejorar" al alcanzar el límite gratuito) |
 | Rankings de ejemplo públicos | Completo (solo demo; los rankings de usuarios no se exponen públicamente) |
 | Perfil de usuario | Completo (datos de cuenta, progreso de plan, acceso rápido a crear) |
-| Categorías personalizadas | Completo (frontend + backend + API) |
+| Categorías personalizadas | Completo (frontend + backend + API, borrado en cascada con confirmación, protección contra borrar la última) |
+| Filtro por categoría en Home | Completo (server-side, respeta paginación, spinner al cambiar filtro) |
 | Modo oscuro / claro | Completo |
 | Compartir rankings | Completo (solo en rankings públicos) |
 | Visibilidad de rankings (público/privado) | Completo (toggle en formulario, badge en tarjeta y vista de detalle) |
@@ -523,6 +526,7 @@ vercel --prod        # producción
 
 ### Prioridad alta
 
+- **Categorías por usuario** — Actualmente las categorías son un recurso global compartido: si un usuario borra una categoría desaparece para todos. Hay que hacer que cada usuario tenga sus propias categorías personalizadas (las categorías por defecto seguirían siendo globales y visibles para todos).
 - **Base de datos real** — Actualmente usuarios, rankings y categorías se almacenan en arrays en memoria dentro de los servicios del backend. Al reiniciar el servidor (o en Vercel entre invocaciones serverless) los datos se pierden. Hay que integrar una base de datos persistente (PostgreSQL, MongoDB, SQLite...).
 - **Hash de contraseñas** — Las contraseñas se guardan en texto plano. Hay que usar `bcrypt` antes de almacenarlas y al verificar el login.
 
