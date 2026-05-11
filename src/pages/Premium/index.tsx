@@ -1,3 +1,8 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../hooks/useAuth'
+import { Modal } from '../../components/ui/Modal'
+
 const FEATURES = [
   { label: 'Rankings guardados',   free: 'Hasta 10',    premium: 'Ilimitados' },
   { label: 'Top 5 por ranking',    free: true,          premium: true },
@@ -18,11 +23,6 @@ function FeatureValue({ value }: { value: boolean | string }) {
   if (value === false) return <Cross />
   return <span className="text-sm dark:text-green-200">{value}</span>
 }
-
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../hooks/useAuth'
-import { Modal } from '../../components/ui/Modal'
 
 export default function Premium() {
   const { user, upgrade, downgrade } = useAuth()

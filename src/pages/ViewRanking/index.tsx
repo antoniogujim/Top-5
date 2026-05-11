@@ -17,9 +17,16 @@ export default function ViewRanking() {
 
       {/* Categoría y título */}
       <div className="mb-6">
-        <span className="text-xs font-semibold uppercase tracking-wide text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900 px-2 py-0.5 rounded-full">
-          {categoryLabel}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900 px-2 py-0.5 rounded-full">
+            {categoryLabel}
+          </span>
+          {!ranking.isPublic && (
+            <span className="text-xs font-medium text-gray-500 dark:text-green-500 bg-gray-100 dark:bg-green-900 px-2 py-0.5 rounded-full">
+              Privado
+            </span>
+          )}
+        </div>
         <h1 className="mt-3 text-2xl font-bold dark:text-green-50">{ranking.title}</h1>
       </div>
 

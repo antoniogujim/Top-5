@@ -19,6 +19,7 @@ export default function CreateRanking() {
 
   const [title, setTitle]       = useState(() => existing?.title ?? '')
   const [category, setCategory] = useState<Category>(() => existing?.category ?? 'movies')
+  const [isPublic, setIsPublic] = useState(() => existing?.isPublic ?? true)
   const [items, setItems]       = useState<string[]>(() =>
     existing ? EMPTY_ITEMS.map((_, i) => existing.items[i]?.title ?? '') : EMPTY_ITEMS
   )
@@ -64,10 +65,10 @@ export default function CreateRanking() {
     setIsSubmitting(true)
     try {
       if (isEditing) {
-        const ok = await updateRanking(id!, { title: title.trim(), category, items: itemsFiltered })
+        const ok = await updateRanking(id!, { title: title.trim(), category, isPublic, items: itemsFiltered })
         if (!ok) return
       } else {
-        const ok = await addRanking({ title: title.trim(), category, isPublic: true, items: itemsFiltered })
+        const ok = await addRanking({ title: title.trim(), category, isPublic, items: itemsFiltered })
         if (!ok) return
       }
       navigate('/')
@@ -165,6 +166,23 @@ export default function CreateRanking() {
                 +
               </button>
             )}
+          </div>
+        </div>
+
+        {/* Visibilidad */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold dark:text-green-200">Visibilidad</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-400 dark:text-green-500">
+              {isPublic ? 'Público' : 'Privado'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsPublic((p) => !p)}
+              className={`relative w-11 h-6 rounded-full transition-colors ${isPublic ? 'bg-green-500' : 'bg-gray-300 dark:bg-green-800'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${isPublic ? 'translate-x-5' : ''}`} />
+            </button>
           </div>
         </div>
 

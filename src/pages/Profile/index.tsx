@@ -5,12 +5,12 @@ import { FREE_LIST_LIMIT } from '../../utils/constants'
 
 export default function Profile() {
   const { user } = useAuth()
-  const { rankings, canCreate } = useRankings()
+  const { total, canCreate } = useRankings()
 
   if (!user) return null
 
   const initials = user.username.slice(0, 2).toUpperCase()
-  const rankingsUsed = rankings.length
+  const rankingsUsed = total
   const isPremium = user.isPremium
 
   return (

@@ -6,12 +6,25 @@ import { FREE_LIST_LIMIT } from '../utils/constants'
 import { api } from '../api/client'
 import { useToast } from './ToastContext'
 
+const PAGE_SIZE = 9
+
 type CreateRankingData = Omit<Ranking, 'id' | 'createdAt' | 'userId'>
+
+interface PaginatedResponse {
+  data: Ranking[]
+  total: number
+  page: number
+  pages: number
+}
 
 interface RankingContextType {
   rankings: Ranking[]
   canCreate: boolean
   isLoading: boolean
+  total: number
+  page: number
+  totalPages: number
+  goToPage: (page: number) => void
   addRanking: (data: CreateRankingData) => Promise<boolean>
   removeRanking: (id: string) => Promise<void>
   updateRanking: (id: string, data: Partial<Ranking>) => Promise<boolean>
@@ -21,6 +34,10 @@ const RankingContext = createContext<RankingContextType>({
   rankings: [],
   canCreate: true,
   isLoading: false,
+  total: 0,
+  page: 1,
+  totalPages: 1,
+  goToPage: () => {},
   addRanking: async () => false,
   removeRanking: async () => {},
   updateRanking: async () => false,
@@ -29,32 +46,49 @@ const RankingContext = createContext<RankingContextType>({
 export function RankingProvider({ children }: { children: ReactNode }) {
   const { user, isAuthenticated } = useAuth()
   const [rankings, setRankings] = useState<Ranking[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
+  const [fetchKey, setFetchKey] = useState(0)
   const { showError } = useToast()
+
+  const refetch = () => setFetchKey((k) => k + 1)
 
   useEffect(() => {
     let active = true
-    api.get<Ranking[]>('/rankings')
-      .then((data) => { if (active) setRankings(data) })
-      .catch(() => {
-        if (active) {
-          setRankings([])
-          showError('No se pudieron cargar los rankings')
+    api.get<PaginatedResponse>(`/rankings?page=${page}&limit=${PAGE_SIZE}`)
+      .then((res) => {
+        if (!active) return
+        if (res.data.length === 0 && page > 1) {
+          setPage((p) => p - 1)
+          return
         }
+        setRankings(res.data)
+        setTotal(res.total)
+        setTotalPages(res.pages)
+        setIsLoading(false)
       })
-      .finally(() => { if (active) setIsLoading(false) })
+      .catch(() => {
+        if (!active) return
+        setRankings([])
+        setIsLoading(false)
+        showError('No se pudieron cargar los rankings')
+      })
     return () => { active = false }
   // showError is stable, safe to omit from deps
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user?.isPremium])
+  }, [isAuthenticated, user?.isPremium, page, fetchKey])
 
-  const canCreate = (user?.isPremium ?? false) || rankings.length < FREE_LIST_LIMIT
+  const goToPage = (next: number) => setPage(next)
+
+  const canCreate = (user?.isPremium ?? false) || total < FREE_LIST_LIMIT
 
   const addRanking = async (data: CreateRankingData): Promise<boolean> => {
     if (!canCreate) return false
     try {
-      const created = await api.post<Ranking>('/rankings', data)
-      setRankings((prev) => [created, ...prev])
+      await api.post<Ranking>('/rankings', data)
+      refetch()
       return true
     } catch {
       showError('No se pudo crear el ranking')
@@ -65,7 +99,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
   const removeRanking = async (id: string): Promise<void> => {
     try {
       await api.del(`/rankings/${id}`)
-      setRankings((prev) => prev.filter((r) => r.id !== id))
+      refetch()
     } catch {
       showError('No se pudo eliminar el ranking')
     }
@@ -83,7 +117,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <RankingContext.Provider value={{ rankings, canCreate, isLoading, addRanking, removeRanking, updateRanking }}>
+    <RankingContext.Provider value={{ rankings, canCreate, isLoading, total, page, totalPages, goToPage, addRanking, removeRanking, updateRanking }}>
       {children}
     </RankingContext.Provider>
   )

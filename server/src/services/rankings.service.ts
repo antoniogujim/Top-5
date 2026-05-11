@@ -50,12 +50,14 @@ const rankings: Ranking[] = [
 ]
 
 export const rankingsService = {
-  getPublic(): Ranking[] {
-    return rankings.filter((r) => r.isPublic)
+  getPublic(page: number, limit: number): { data: Ranking[]; total: number } {
+    const all = rankings.filter((r) => r.isPublic)
+    return { data: all.slice((page - 1) * limit, page * limit), total: all.length }
   },
 
-  getByUser(userId: string): Ranking[] {
-    return rankings.filter((r) => r.userId === userId)
+  getByUser(userId: string, page: number, limit: number): { data: Ranking[]; total: number } {
+    const all = rankings.filter((r) => r.userId === userId)
+    return { data: all.slice((page - 1) * limit, page * limit), total: all.length }
   },
 
   getById(id: string): Ranking | undefined {

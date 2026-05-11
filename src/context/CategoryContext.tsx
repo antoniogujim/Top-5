@@ -28,10 +28,12 @@ export function CategoryProvider({ children }: { children: ReactNode }) {
   const { showError } = useToast()
 
   useEffect(() => {
+    let active = true
     api.get<CategoryItem[]>('/categories')
-      .then(setCategories)
-      .catch(() => { showError('No se pudieron cargar las categorías') })
-      .finally(() => setIsLoading(false))
+      .then((data) => { if (active) setCategories(data) })
+      .catch(() => { if (active) showError('No se pudieron cargar las categorías') })
+      .finally(() => { if (active) setIsLoading(false) })
+    return () => { active = false }
   // showError is stable, safe to omit from deps
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

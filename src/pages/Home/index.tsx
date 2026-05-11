@@ -4,7 +4,7 @@ import { RankingCard } from '../../components/ranking/RankingCard'
 
 export default function Home() {
   const navigate = useNavigate()
-  const { rankings, removeRanking, isLoading } = useRankings()
+  const { rankings, removeRanking, isLoading, page, totalPages, goToPage } = useRankings()
 
   const handleEdit = (id: string) => navigate(`/edit/${id}`)
 
@@ -19,16 +19,40 @@ export default function Home() {
       ) : rankings.length === 0 ? (
         <p className="text-gray-500 dark:text-green-400">Aún no tienes rankings. ¡Crea uno!</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {rankings.map((ranking) => (
-            <RankingCard
-              key={ranking.id}
-              ranking={ranking}
-              onEdit={handleEdit}
-              onDelete={removeRanking}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {rankings.map((ranking) => (
+              <RankingCard
+                key={ranking.id}
+                ranking={ranking}
+                onEdit={handleEdit}
+                onDelete={removeRanking}
+              />
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-8">
+              <button
+                onClick={() => goToPage(page - 1)}
+                disabled={page === 1}
+                className="px-4 py-2 rounded-xl border border-green-200 dark:border-green-700 text-sm font-medium dark:text-green-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-50 dark:hover:bg-green-900"
+              >
+                ← Anterior
+              </button>
+              <span className="text-sm text-gray-500 dark:text-green-400 px-2">
+                {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => goToPage(page + 1)}
+                disabled={page === totalPages}
+                className="px-4 py-2 rounded-xl border border-green-200 dark:border-green-700 text-sm font-medium dark:text-green-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-50 dark:hover:bg-green-900"
+              >
+                Siguiente →
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

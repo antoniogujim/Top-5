@@ -10,16 +10,24 @@ import Auth from '../pages/Auth'
 import NotFound from '../pages/NotFound'
 import { useAuth } from '../hooks/useAuth'
 
+function AuthLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="w-8 h-8 rounded-full border-2 border-green-200 border-t-green-600 animate-spin" />
+    </div>
+  )
+}
+
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isInitialized } = useAuth()
-  if (!isInitialized) return null
+  if (!isInitialized) return <AuthLoader />
   if (!isAuthenticated) return <Navigate to="/auth" replace />
   return <>{children}</>
 }
 
 function PublicOnlyRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isInitialized } = useAuth()
-  if (!isInitialized) return null
+  if (!isInitialized) return <AuthLoader />
   if (isAuthenticated) return <Navigate to="/" replace />
   return <>{children}</>
 }

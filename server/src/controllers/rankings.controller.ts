@@ -4,10 +4,12 @@ import { authService } from '../services/auth.service'
 
 export const rankingsController = {
   getAll(req: Request, res: Response): void {
-    const rankings = req.userId
-      ? rankingsService.getByUser(req.userId)
-      : rankingsService.getPublic()
-    res.json(rankings)
+    const page  = Math.max(1, parseInt(req.query.page  as string) || 1)
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 9))
+    const { data, total } = req.userId
+      ? rankingsService.getByUser(req.userId, page, limit)
+      : rankingsService.getPublic(page, limit)
+    res.json({ data, total, page, pages: Math.ceil(total / limit) || 1 })
   },
 
   getById(req: Request, res: Response): void {

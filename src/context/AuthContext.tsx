@@ -53,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = (): void => {
+    api.post('/auth/logout', {}).catch(() => {})
     localStorage.removeItem('token')
     setUser(null)
   }

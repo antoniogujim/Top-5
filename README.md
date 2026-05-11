@@ -30,10 +30,10 @@ Aplicación web para crear, gestionar y compartir rankings personales de Top 5 e
 
 **Top5** permite a cualquier usuario:
 
-1. Crear rankings de hasta 5 elementos con un título y una categoría.
-2. Ver todos sus rankings en una cuadrícula responsiva desde la página principal.
+1. Crear rankings de hasta 5 elementos con un título, una categoría y una visibilidad (público o privado).
+2. Ver todos sus rankings paginados (9 por página) en una cuadrícula responsiva desde la página principal.
 3. Editar o eliminar cualquier ranking (con confirmación modal antes de borrar).
-4. Compartir un ranking: si el navegador soporta la Web Share API, abre el diálogo nativo del sistema; si no, copia el enlace directo al portapapeles y muestra el texto "¡Copiado!".
+4. Compartir un ranking público: si el navegador soporta la Web Share API, abre el diálogo nativo del sistema; si no, copia el enlace directo al portapapeles y muestra el texto "¡Copiado!". Los rankings privados no muestran el botón compartir.
 5. Añadir o quitar categorías personalizadas directamente desde el formulario de creación.
 6. Cambiar entre modo claro y modo oscuro, que se recuerda entre sesiones.
 7. Registrarse e iniciar sesión con email y contraseña — el JWT se persiste en `localStorage` y la sesión se restaura automáticamente al recargar.
@@ -152,20 +152,22 @@ Los rankings y categorías se persisten en la API REST. El tema (claro/oscuro) s
 ### `/` — Home
 
 - **Sin sesión** — muestra rankings de ejemplo (solo botón "Compartir" visible).
-- **Con sesión** — muestra los rankings del usuario. Cada tarjeta expone tres acciones solo si el ranking pertenece al usuario:
+- **Con sesión** — muestra los rankings del usuario paginados (9 por página). Cada tarjeta expone hasta tres acciones si el ranking pertenece al usuario:
   - **Editar** → navega a `/edit/:id` con el formulario pre-relleno.
-  - **Compartir** → usa la Web Share API si está disponible o copia el enlace `/ranking/:id` al portapapeles.
+  - **Compartir** → usa la Web Share API si está disponible o copia el enlace `/ranking/:id` al portapapeles. Solo visible en rankings públicos.
   - **Eliminar** → abre un `Modal` de confirmación antes de borrar definitivamente (llama a `DELETE /api/rankings/:id`).
+- **Paginación** — controles "← Anterior / Siguiente →" con indicador de página actual. Solo aparecen si hay más de una página.
 
 Si no hay rankings propios, se muestra un mensaje de estado vacío.
 
 ### `/create` — Crear ranking
 
-Formulario con tres secciones:
+Formulario con cuatro secciones:
 
 1. **Título** — campo de texto libre, obligatorio.
 2. **Categoría** — se muestra como chips/píldoras seleccionables. Se puede añadir una categoría nueva pulsando `+`, escribir el nombre y confirmar con `Enter` o `✓`. También se puede eliminar cualquier categoría con la `×` de cada chip.
-3. **Top 5** — cinco campos numerados. La posición 1 es obligatoria; las demás son opcionales. Los campos vacíos se descartan al guardar.
+3. **Visibilidad** — toggle en línea con etiqueta "Público / Privado". Público por defecto. Los rankings privados muestran un badge "Privado" en la tarjeta y en la vista de detalle, y no tienen botón compartir.
+4. **Top 5** — cinco campos numerados. La posición 1 es obligatoria; las demás son opcionales. Los campos vacíos se descartan al guardar.
 
 Al enviar, el ranking se crea en el backend (`POST /api/rankings`) y redirige al home.
 
@@ -175,7 +177,7 @@ Usa el mismo componente `CreateRanking` pero en modo edición: carga los datos d
 
 ### `/ranking/:id` — Vista pública
 
-Muestra el ranking completo: badge de categoría, título y la lista ordenada de elementos. Incluye un enlace `← Ver todos los rankings` para volver al home.
+Muestra el ranking completo: badge de categoría, badge "Privado" si aplica, título y la lista ordenada de elementos. Incluye un enlace `← Ver todos los rankings` para volver al home.
 
 ### `/premium` — Planes
 
@@ -233,7 +235,7 @@ Wrapper sobre `fetch` que centraliza todas las llamadas al backend:
 ```ts
 import { api } from '../api/client'
 
-const rankings = await api.get<Ranking[]>('/rankings')
+const page     = await api.get<{ data: Ranking[]; total: number; page: number; pages: number }>('/rankings?page=1&limit=9')
 const created  = await api.post<Ranking>('/rankings', data)
 await api.put('/rankings/123', updates)
 await api.del('/rankings/123')
@@ -241,7 +243,7 @@ await api.del('/rankings/123')
 
 ### `RankingCard`
 
-El componente determina la propiedad del ranking internamente llamando a `useAuth()` y comparando `user.id === ranking.userId`. Las acciones de editar y eliminar sólo se renderizan si `isOwner` es `true`; el botón compartir siempre es visible. Las props que recibe son:
+El componente determina la propiedad del ranking internamente llamando a `useAuth()` y comparando `user.id === ranking.userId`. Las acciones de editar y eliminar sólo se renderizan si `isOwner` es `true`; el botón compartir solo aparece si `ranking.isPublic` es `true`. Si el ranking es privado se muestra un badge "Privado" junto al badge de categoría. Las props que recibe son:
 
 ```ts
 interface RankingCardProps {
@@ -269,7 +271,7 @@ El router usa dos guards:
 - **`PrivateRoute`** — si el usuario no está autenticado redirige a `/auth`. Aplicado a `/create`, `/edit/:id` y `/profile`.
 - **`PublicOnlyRoute`** — si el usuario ya tiene sesión redirige al home. Aplicado a `/auth`.
 
-Ambos guards esperan a que `isInitialized` sea `true` antes de actuar, evitando redirecciones incorrectas durante la restauración de la sesión.
+Ambos guards esperan a que `isInitialized` sea `true` antes de actuar. Mientras se verifica la sesión muestran un spinner centrado (`AuthLoader`) en lugar de una pantalla en blanco.
 
 ### Contexts y estado global
 
@@ -292,7 +294,7 @@ ToastProvider
 
 **`CategoryContext`** — Carga las categorías (`CategoryItem[]`) de `GET /api/categories` al montar. Expone `isLoading` para que los consumidores puedan mostrar un estado de carga. `addCategory` deriva el `value` en kebab-case a partir del `label` introducido por el usuario. `addCategory` y `removeCategory` sincronizan con la API. Cualquier fallo de red o del servidor muestra un toast de error; el estado local no se modifica si la operación no llega a completarse.
 
-**`RankingContext`** — Carga rankings de `GET /api/rankings` al montar y cada vez que cambia `isAuthenticated` o `user.isPremium`. Con token devuelve los rankings del usuario; sin token devuelve únicamente los rankings de demo. Expone `isLoading` (usado por `Home` para mostrar un spinner durante la carga inicial), `addRanking`, `removeRanking` y `updateRanking` (todos devuelven `boolean` para que el llamador sepa si tuvo éxito). Cualquier fallo de API dispara un toast de error.
+**`RankingContext`** — Carga rankings de `GET /api/rankings?page=N&limit=9` al montar y cada vez que cambia `isAuthenticated`, `user.isPremium` o la página activa. Con token devuelve los rankings del usuario; sin token devuelve únicamente los rankings de demo. La respuesta paginada `{ data, total, page, pages }` alimenta el estado `rankings`, `total`, `page` y `totalPages`. Expone `goToPage(n)` para navegar entre páginas y un `fetchKey` interno que fuerza un refetch real tras cada mutación (crear, borrar), garantizando que la lista refleja el estado del servidor sin recargar. `canCreate` se calcula sobre `total` (no sobre `rankings.length`) para ser correcto con cualquier página activa.
 
 ### Modelo de datos
 
@@ -351,12 +353,13 @@ El servidor Express expone tres grupos de rutas bajo el prefijo `/api`. Las ruta
 | `GET` | `/api/auth/me` | Sí | Devuelve el usuario autenticado |
 | `POST` | `/api/auth/upgrade` | Sí | Activa el plan Premium |
 | `POST` | `/api/auth/downgrade` | Sí | Vuelve al plan Gratis y elimina rankings sobrantes |
+| `POST` | `/api/auth/logout` | Sí | Invalida la sesión en el servidor |
 
 ### Rankings
 
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
-| `GET` | `/api/rankings` | Opcional | Con token → rankings del usuario; sin token → rankings públicos |
+| `GET` | `/api/rankings?page=1&limit=9` | Opcional | Con token → rankings del usuario; sin token → rankings públicos. Devuelve `{ data, total, page, pages }` |
 | `GET` | `/api/rankings/:id` | No | Detalle de un ranking concreto |
 | `POST` | `/api/rankings` | Sí | Crea un ranking |
 | `PUT` | `/api/rankings/:id` | Sí | Actualiza un ranking (solo el propietario) |
@@ -495,17 +498,19 @@ vercel --prod        # producción
 | Funcionalidad | Estado |
 |---|---|
 | CRUD de rankings | Completo (frontend + backend + API) |
-| Autenticación JWT | Completo (registro, login, sesión persistente) |
-| Protección de rutas | Completo (PrivateRoute + PublicOnlyRoute) |
+| Autenticación JWT | Completo (registro, login, logout server-side, sesión persistente) |
+| Protección de rutas | Completo (PrivateRoute + PublicOnlyRoute con spinner durante init) |
 | Navbar contextual | Completo (muestra usuario, logout, oculta "Crear" sin sesión, responsive) |
 | Navbar límite de plan | Completo ("Crear" pasa a "Mejorar" al alcanzar el límite gratuito) |
 | Rankings de ejemplo públicos | Completo (solo demo; los rankings de usuarios no se exponen públicamente) |
 | Perfil de usuario | Completo (datos de cuenta, progreso de plan, acceso rápido a crear) |
 | Categorías personalizadas | Completo (frontend + backend + API) |
 | Modo oscuro / claro | Completo |
-| Compartir rankings | Completo |
+| Compartir rankings | Completo (solo en rankings públicos) |
+| Visibilidad de rankings (público/privado) | Completo (toggle en formulario, badge en tarjeta y vista de detalle) |
+| Paginación server-side | Completo (9 por página, controles Anterior/Siguiente, refetch tras mutaciones, retroceso automático si la página queda vacía) |
 | Vista pública de ranking | Completo |
-| Estados de red (loading / data / error) | Completo (spinner en Home, botón bloqueado en formularios, toasts de error) |
+| Estados de red (loading / data / error) | Completo (spinner en Home y guards, botón bloqueado en formularios, toasts de error) |
 | Manejo de errores en la UI | Completo (toasts en todas las operaciones de API) |
 | Página 404 | Completo (ruta catch-all con enlace al home) |
 | Formularios controlados | Completo (Auth y CreateRanking con useState + validación inline) |
@@ -524,6 +529,7 @@ vercel --prod        # producción
 ### Prioridad media
 
 - **Edición de perfil** — La página `/profile` muestra los datos del usuario pero no permite editarlos (requiere endpoint `PUT /api/auth/me` en el backend).
+- **Recuperación de contraseña** — No existe flujo de "olvidé mi contraseña" (requiere sistema de envío de email y tokens temporales).
 
 ### Prioridad baja
 

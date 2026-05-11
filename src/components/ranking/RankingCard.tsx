@@ -25,9 +25,16 @@ export function RankingCard({ ranking, onEdit, onDelete }: RankingCardProps) {
 
       {/* Header */}
       <div className="px-4 pt-4 pb-3 border-b border-green-100 dark:border-green-800">
-        <span className="text-xs font-semibold uppercase tracking-wide text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900 px-2 py-0.5 rounded-full">
-          {categoryLabel}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900 px-2 py-0.5 rounded-full">
+            {categoryLabel}
+          </span>
+          {!ranking.isPublic && (
+            <span className="text-xs font-medium text-gray-500 dark:text-green-500 bg-gray-100 dark:bg-green-900 px-2 py-0.5 rounded-full">
+              Privado
+            </span>
+          )}
+        </div>
         <h2 className="mt-2 text-base font-bold text-black dark:text-green-50 leading-tight">
           {ranking.title}
         </h2>
@@ -55,12 +62,14 @@ export function RankingCard({ ranking, onEdit, onDelete }: RankingCardProps) {
             Editar
           </button>
         )}
-        <button
-          onClick={() => share(ranking.id, ranking.title)}
-          className={`flex-1 py-2 text-sm font-medium text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900 ${isOwner ? 'border-x border-green-100 dark:border-green-800' : ''}`}
-        >
-          {copied ? '¡Copiado!' : 'Compartir'}
-        </button>
+        {ranking.isPublic && (
+          <button
+            onClick={() => share(ranking.id, ranking.title)}
+            className={`flex-1 py-2 text-sm font-medium text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900 ${isOwner ? 'border-x border-green-100 dark:border-green-800' : ''}`}
+          >
+            {copied ? '¡Copiado!' : 'Compartir'}
+          </button>
+        )}
         {isOwner && (
           <button
             onClick={() => setShowConfirm(true)}
