@@ -19,7 +19,36 @@ function FeatureValue({ value }: { value: boolean | string }) {
   return <span className="text-sm dark:text-green-200">{value}</span>
 }
 
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../hooks/useAuth'
+import { Modal } from '../../components/ui/Modal'
+
 export default function Premium() {
+  const { user, upgrade, downgrade } = useAuth()
+  const navigate = useNavigate()
+  const [loading, setLoading] = useState(false)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+
+  const handleUpgrade = async () => {
+    if (!user) { navigate('/auth'); return }
+    setLoading(true)
+    try {
+      await upgrade()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDowngrade = async () => {
+    setLoading(true)
+    try {
+      await downgrade()
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="max-w-xl mx-auto px-6 py-12">
 
@@ -68,15 +97,44 @@ export default function Premium() {
         <p className="text-3xl font-bold dark:text-green-50">
           2,99 €<span className="text-base font-normal text-gray-400 dark:text-green-500"> / mes</span>
         </p>
-        <button
-          disabled
-          className="mt-6 w-full py-3 rounded-xl bg-green-600 text-white font-medium opacity-50 cursor-not-allowed"
-        >
-          Próximamente
-        </button>
-        <p className="mt-3 text-xs text-gray-400 dark:text-green-600">
-          Estamos trabajando en ello. ¡Vuelve pronto!
-        </p>
+        {user?.isPremium ? (
+          <>
+            <div className="mt-6 w-full py-3 rounded-xl bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 font-medium text-center">
+              Ya eres Premium
+            </div>
+            <button
+              onClick={() => setShowCancelModal(true)}
+              disabled={loading}
+              className="mt-3 w-full py-2 rounded-xl border border-red-300 dark:border-red-800 text-red-500 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-950 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Procesando...' : 'Cancelar suscripción'}
+            </button>
+            {showCancelModal && (
+              <Modal
+                title="Cancelar suscripción Premium"
+                confirmLabel="Cancelar suscripción"
+                confirmDanger
+                onConfirm={() => { setShowCancelModal(false); handleDowngrade() }}
+                onCancel={() => setShowCancelModal(false)}
+              >
+                <p>Al cancelar perderás inmediatamente:</p>
+                <ul className="mt-2 space-y-1 list-disc list-inside">
+                  <li>Rankings ilimitados (solo podrás conservar los 10 primeros)</li>
+                  <li>Acceso anticipado a nuevas funciones</li>
+                </ul>
+                <p className="mt-2">¿Seguro que quieres volver al plan Gratis?</p>
+              </Modal>
+            )}
+          </>
+        ) : (
+          <button
+            onClick={handleUpgrade}
+            disabled={loading}
+            className="mt-6 w-full py-3 rounded-xl bg-green-600 text-white font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Activando...' : user ? 'Activar Premium' : 'Acceder para activar'}
+          </button>
+        )}
       </div>
 
     </div>

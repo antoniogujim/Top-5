@@ -40,4 +40,20 @@ export const authService = {
     const { password: _, ...safeUser } = user
     return safeUser
   },
+
+  upgradeToPremium(id: string): Omit<User, 'password'> {
+    const user = users.find((u) => u.id === id)
+    if (!user) throw new Error('User not found')
+    user.isPremium = true
+    const { password: _, ...safeUser } = user
+    return safeUser
+  },
+
+  downgradeToFree(id: string): Omit<User, 'password'> {
+    const user = users.find((u) => u.id === id)
+    if (!user) throw new Error('User not found')
+    user.isPremium = false
+    const { password: _, ...safeUser } = user
+    return safeUser
+  },
 }

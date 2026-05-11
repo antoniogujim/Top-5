@@ -10,6 +10,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>
   register: (username: string, email: string, password: string) => Promise<void>
   logout: () => void
+  upgrade: () => Promise<void>
+  downgrade: () => Promise<void>
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -20,6 +22,8 @@ export const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   register: async () => {},
   logout: () => {},
+  upgrade: async () => {},
+  downgrade: async () => {},
 })
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -53,8 +57,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }
 
+  const upgrade = async (): Promise<void> => {
+    const updated = await api.post<User>('/auth/upgrade', {})
+    setUser(updated)
+  }
+
+  const downgrade = async (): Promise<void> => {
+    const updated = await api.post<User>('/auth/downgrade', {})
+    setUser(updated)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isInitialized, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isInitialized, login, register, logout, upgrade, downgrade }}>
       {children}
     </AuthContext.Provider>
   )

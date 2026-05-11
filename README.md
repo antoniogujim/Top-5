@@ -2,6 +2,11 @@
 
 Aplicación web para crear, gestionar y compartir rankings personales de Top 5 en distintas categorías (películas, canciones, videojuegos, comida...). Incluye planes gratuito y Premium, modo oscuro y una API REST propia.
 
+## Demo en producción
+
+- **Frontend:** https://top-5-nine.vercel.app
+- **API:** https://top-5-nine.vercel.app/api
+
 ---
 
 ## Tabla de contenidos
@@ -32,6 +37,7 @@ Aplicación web para crear, gestionar y compartir rankings personales de Top 5 e
 5. Añadir o quitar categorías personalizadas directamente desde el formulario de creación.
 6. Cambiar entre modo claro y modo oscuro, que se recuerda entre sesiones.
 7. Registrarse e iniciar sesión con email y contraseña — el JWT se persiste en `localStorage` y la sesión se restaura automáticamente al recargar.
+8. Activar o cancelar el plan Premium directamente desde la página `/premium`, con confirmación modal al cancelar y eliminación automática de rankings sobrantes si se supera el límite gratuito.
 
 Los rankings y categorías se persisten en la API REST. El tema (claro/oscuro) se guarda en `localStorage`.
 
@@ -98,8 +104,7 @@ Los rankings y categorías se persisten en la API REST. El tema (claro/oscuro) s
 │   │   └── ToastContext.tsx      # Notificaciones de error/éxito (auto-dismiss 4 s)
 │   ├── hooks/
 │   │   ├── useAuth.ts            # Acceso a AuthContext
-│   │   ├── useRankings.ts        # Estado de rankings con useMemo en canCreate
-│   │   └── useShare.ts           # Web Share API con fallback a clipboard (useCallback)
+│   │   └── useShare.ts           # Web Share API con fallback a clipboard + cleanup de timeout
 │   ├── types/
 │   │   └── index.ts              # Interfaces: User, Ranking, RankingItem, Category
 │   └── utils/
@@ -113,7 +118,7 @@ Los rankings y categorías se persisten en la API REST. El tema (claro/oscuro) s
 │       ├── express.d.ts          # Extiende Request con userId?: string
 │       ├── types.ts              # Tipos compartidos del servidor (User, Ranking, JwtPayload...)
 │       ├── routes/
-│       │   ├── auth.routes.ts    # POST /register, POST /login, GET /me
+│       │   ├── auth.routes.ts    # POST /register, POST /login, GET /me, POST /upgrade, POST /downgrade
 │       │   ├── rankings.routes.ts# CRUD completo de rankings
 │       │   ├── categories.routes.ts # CRUD de categorías
 │       │   └── middleware.ts     # requireAuth + optionalAuth (valida Bearer JWT)
@@ -133,7 +138,8 @@ Los rankings y categorías se persisten en la API REST. El tema (claro/oscuro) s
 │   ├── context.md                # Contextos globales y árbol de providers
 │   ├── routing.md                # Mapa de rutas y guards
 │   └── forms.md                  # Formularios controlados y validación
-├── public/                       # Assets estáticos servidos por Vite
+├── public/
+│   └── favicon.svg               # Icono "T5": fondo verde degradado, T blanca y 5 en verde claro
 ├── vercel.json                   # Configuración de despliegue (frontend + serverless)
 ├── package.json                  # Dependencias y scripts del frontend
 └── tsconfig*.json                # Configuración TypeScript (app / node / base)
@@ -183,7 +189,11 @@ Tabla comparativa entre el plan **Gratis** y **Premium**:
 | Categorías propias | Sí | Sí |
 | Acceso anticipado | No | Sí |
 
-Precio estimado: **2,99 € / mes**. El botón de pago está deshabilitado ("Próximamente").
+Precio estimado: **2,99 € / mes**.
+
+- **Sin sesión** — el botón redirige a `/auth`.
+- **Plan Gratis** — botón "Activar Premium" que llama a `POST /api/auth/upgrade` y actualiza el estado del usuario en el contexto de forma inmediata.
+- **Plan Premium** — muestra "Ya eres Premium" y un botón "Cancelar suscripción" que abre un modal de confirmación con el listado de beneficios que se perderán. Al confirmar, llama a `POST /api/auth/downgrade`, que pone `isPremium = false` y elimina del backend los rankings que superen el límite de 10 (conservando los más antiguos). El frontend re-fetcha la lista automáticamente.
 
 ### `/profile` — Perfil de usuario
 
@@ -278,11 +288,11 @@ ToastProvider
 
 **`ThemeContext`** — Gestiona `'light' | 'dark'`. Al cambiar, añade/quita la clase `dark` en `<html>` y lo guarda en `localStorage`.
 
-**`AuthContext`** — Al montar comprueba si hay un token en `localStorage` y llama a `GET /api/auth/me` para restaurar la sesión. Expone `login(email, password)`, `register(username, email, password)` y `logout()`. El flag `isInitialized` evita flashes de redirección mientras se verifica el token al cargar la página.
+**`AuthContext`** — Al montar comprueba si hay un token en `localStorage` y llama a `GET /api/auth/me` para restaurar la sesión. Expone `login(email, password)`, `register(username, email, password)`, `logout()`, `upgrade()` y `downgrade()`. Los métodos `upgrade` y `downgrade` llaman a sus respectivos endpoints y actualizan el objeto `user` en el estado. El flag `isInitialized` evita flashes de redirección mientras se verifica el token al cargar la página.
 
 **`CategoryContext`** — Carga las categorías (`CategoryItem[]`) de `GET /api/categories` al montar. Expone `isLoading` para que los consumidores puedan mostrar un estado de carga. `addCategory` deriva el `value` en kebab-case a partir del `label` introducido por el usuario. `addCategory` y `removeCategory` sincronizan con la API. Cualquier fallo de red o del servidor muestra un toast de error; el estado local no se modifica si la operación no llega a completarse.
 
-**`RankingContext`** — Carga rankings de `GET /api/rankings` al montar y cada vez que cambia el estado de autenticación. Con token devuelve los rankings del usuario; sin token devuelve únicamente los rankings de demo. Expone `isLoading` (usado por `Home` para mostrar un spinner durante la carga inicial), `addRanking`, `removeRanking` y `updateRanking` (todos devuelven `boolean` para que el llamador sepa si tuvo éxito). Cualquier fallo de API dispara un toast de error.
+**`RankingContext`** — Carga rankings de `GET /api/rankings` al montar y cada vez que cambia `isAuthenticated` o `user.isPremium`. Con token devuelve los rankings del usuario; sin token devuelve únicamente los rankings de demo. Expone `isLoading` (usado por `Home` para mostrar un spinner durante la carga inicial), `addRanking`, `removeRanking` y `updateRanking` (todos devuelven `boolean` para que el llamador sepa si tuvo éxito). Cualquier fallo de API dispara un toast de error.
 
 ### Modelo de datos
 
@@ -334,11 +344,13 @@ El servidor Express expone tres grupos de rutas bajo el prefijo `/api`. Las ruta
 
 ### Autenticación
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| `POST` | `/api/auth/register` | Crea una cuenta nueva |
-| `POST` | `/api/auth/login` | Devuelve un JWT (7 días de validez) |
-| `GET` | `/api/auth/me` | Devuelve el usuario autenticado (auth) |
+| Método | Ruta | Auth | Descripción |
+|---|---|---|---|
+| `POST` | `/api/auth/register` | No | Crea una cuenta nueva |
+| `POST` | `/api/auth/login` | No | Devuelve un JWT (7 días de validez) |
+| `GET` | `/api/auth/me` | Sí | Devuelve el usuario autenticado |
+| `POST` | `/api/auth/upgrade` | Sí | Activa el plan Premium |
+| `POST` | `/api/auth/downgrade` | Sí | Vuelve al plan Gratis y elimina rankings sobrantes |
 
 ### Rankings
 
@@ -380,6 +392,20 @@ canCreate(userId: string, isPremium: boolean): boolean {
 ```
 
 Si `canCreate` devuelve `false`, el backend responde `403` y el frontend redirige a `/premium` (tanto desde `/create` como desde el botón de perfil y el enlace de la Navbar).
+
+Al hacer downgrade, el backend elimina automáticamente los rankings que superen el límite, conservando los 10 más antiguos por fecha de creación:
+
+```ts
+// Backend: rankings.service.ts
+trimToLimit(userId: string, limit: number): number {
+  const userRankings = rankings
+    .filter(r => r.userId === userId)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  const toDelete = userRankings.slice(limit)
+  toDelete.forEach(r => { /* elimina del array */ })
+  return toDelete.length
+}
+```
 
 ---
 
@@ -484,7 +510,7 @@ vercel --prod        # producción
 | Página 404 | Completo (ruta catch-all con enlace al home) |
 | Formularios controlados | Completo (Auth y CreateRanking con useState + validación inline) |
 | Documentación técnica | Completo (7 documentos en docs/) |
-| Plan Premium / pagos | UI lista — lógica pendiente |
+| Plan Premium — activar / cancelar | Completo (upgrade + downgrade con eliminación de rankings sobrantes) |
 
 ---
 
@@ -501,6 +527,6 @@ vercel --prod        # producción
 
 ### Prioridad baja
 
-- **Plan Premium / pagos** — Integrar pasarela de pago (Stripe) y lógica de upgrade de cuenta.
+- **Pasarela de pago** — Integrar Stripe para cobrar el plan Premium en lugar del upgrade directo actual.
 - **Persistencia de sesión mejorada** — Refresh tokens para no tener que volver a logarse cada 7 días.
 - **Tests** — No hay tests unitarios ni de integración.

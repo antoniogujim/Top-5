@@ -76,7 +76,7 @@ export function RankingCard({ ranking, onEdit, onDelete }: RankingCardProps) {
           title="Eliminar ranking"
           confirmLabel="Eliminar"
           confirmDanger
-          onConfirm={() => onDelete(ranking.id)}
+          onConfirm={() => { onDelete(ranking.id); setShowConfirm(false) }}
           onCancel={() => setShowConfirm(false)}
         >
           ¿Seguro que quieres eliminar <strong>"{ranking.title}"</strong>? Esta acción no se puede deshacer.

@@ -46,7 +46,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
     return () => { active = false }
   // showError is stable, safe to omit from deps
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated])
+  }, [isAuthenticated, user?.isPremium])
 
   const canCreate = (user?.isPremium ?? false) || rankings.length < FREE_LIST_LIMIT
 

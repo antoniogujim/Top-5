@@ -1,5 +1,7 @@
 import type { Request, Response } from 'express'
 import { authService } from '../services/auth.service'
+import { rankingsService } from '../services/rankings.service'
+import { config } from '../config'
 
 export const authController = {
   register(req: Request, res: Response): void {
@@ -38,5 +40,25 @@ export const authController = {
       return
     }
     res.json(user)
+  },
+
+  upgrade(req: Request, res: Response): void {
+    try {
+      const user = authService.upgradeToPremium(req.userId ?? '')
+      res.json(user)
+    } catch (err) {
+      res.status(404).json({ message: (err as Error).message })
+    }
+  },
+
+  downgrade(req: Request, res: Response): void {
+    try {
+      const userId = req.userId ?? ''
+      const user = authService.downgradeToFree(userId)
+      rankingsService.trimToLimit(userId, config.freeListLimit)
+      res.json(user)
+    } catch (err) {
+      res.status(404).json({ message: (err as Error).message })
+    }
   },
 }

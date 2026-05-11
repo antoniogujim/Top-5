@@ -51,7 +51,7 @@ const rankings: Ranking[] = [
 
 export const rankingsService = {
   getPublic(): Ranking[] {
-    return rankings.filter((r) => r.isPublic && r.userId === 'demo')
+    return rankings.filter((r) => r.isPublic)
   },
 
   getByUser(userId: string): Ranking[] {
@@ -91,5 +91,17 @@ export const rankingsService = {
     if (index === -1) throw new Error('Ranking not found')
     if (rankings[index].userId !== userId) throw new Error('Forbidden')
     rankings.splice(index, 1)
+  },
+
+  trimToLimit(userId: string, limit: number): number {
+    const userRankings = rankings
+      .filter((r) => r.userId === userId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    const toDelete = userRankings.slice(limit)
+    toDelete.forEach((r) => {
+      const index = rankings.findIndex((x) => x.id === r.id)
+      if (index !== -1) rankings.splice(index, 1)
+    })
+    return toDelete.length
   },
 }
