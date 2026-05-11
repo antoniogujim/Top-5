@@ -51,7 +51,7 @@ const rankings: Ranking[] = [
 
 export const rankingsService = {
   getPublic(page: number, limit: number, category?: string): { data: Ranking[]; total: number } {
-    let all = rankings.filter((r) => r.isPublic)
+    let all = rankings.filter((r) => r.isPublic && r.userId === 'demo')
     if (category) all = all.filter((r) => r.category === category)
     return { data: all.slice((page - 1) * limit, page * limit), total: all.length }
   },

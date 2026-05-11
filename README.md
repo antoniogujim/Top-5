@@ -427,6 +427,7 @@ La carpeta `docs/` contiene la documentación técnica detallada del proyecto:
 | [`docs/context.md`](docs/context.md) | Contextos globales, árbol de providers y cuándo usar Context API |
 | [`docs/routing.md`](docs/routing.md) | Mapa de rutas, guards (`PrivateRoute`, `PublicOnlyRoute`) y mecanismos de navegación |
 | [`docs/forms.md`](docs/forms.md) | Formularios controlados, gestión de estado de inputs y validación |
+| [`docs/deployment.md`](docs/deployment.md) | Proceso de despliegue en Vercel, variables de entorno y verificación de producción |
 
 ---
 
@@ -504,7 +505,7 @@ vercel --prod        # producción
 | Protección de rutas | Completo (PrivateRoute + PublicOnlyRoute con spinner durante init) |
 | Navbar contextual | Completo (muestra usuario, logout, oculta "Crear" sin sesión, responsive) |
 | Navbar límite de plan | Completo ("Crear" pasa a "Mejorar" al alcanzar el límite gratuito) |
-| Rankings de ejemplo públicos | Completo (solo demo; los rankings de usuarios no se exponen públicamente) |
+| Rankings de ejemplo públicos | Completo (sin sesión solo se muestran los rankings del usuario demo, nunca los de otros usuarios) |
 | Perfil de usuario | Completo (datos de cuenta, progreso de plan, acceso rápido a crear) |
 | Categorías por usuario | Completo (cada usuario tiene su propio set; 5 por defecto en español al registrarse; Premium puede añadir/borrar; borrado en cascada con confirmación; aviso de duplicado por valor y etiqueta insensible a mayúsculas; formulario arranca con la primera categoría real del usuario; free ve enlace a Premium) |
 | Filtro por categoría en Home | Completo (server-side, respeta paginación, spinner al cambiar filtro) |
@@ -517,7 +518,7 @@ vercel --prod        # producción
 | Manejo de errores en la UI | Completo (toasts en todas las operaciones de API, fallo de portapapeles al compartir, fallo de upgrade/downgrade Premium) |
 | Página 404 | Completo (ruta catch-all con enlace al home) |
 | Formularios controlados | Completo (Auth y CreateRanking con useState + validación inline) |
-| Documentación técnica | Completo (7 documentos en docs/) |
+| Documentación técnica | Completo (8 documentos en docs/) |
 | Plan Premium — activar / cancelar | Completo (upgrade + downgrade con eliminación de rankings sobrantes) |
 
 ---
