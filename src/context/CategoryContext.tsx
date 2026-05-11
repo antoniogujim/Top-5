@@ -42,7 +42,11 @@ export function CategoryProvider({ children }: { children: ReactNode }) {
     const trimmed = label.trim()
     if (!trimmed) return
     const value = trimmed.toLowerCase().replace(/\s+/g, '-')
-    if (categories.find((c) => c.value === value)) return
+    const labelLower = trimmed.toLowerCase()
+    if (categories.find((c) => c.value === value || c.label.toLowerCase() === labelLower)) {
+      showError('Esa categoría ya existe')
+      return
+    }
     try {
       const created = await api.post<CategoryItem>('/categories', { label: trimmed })
       setCategories((prev) => [...prev, created])

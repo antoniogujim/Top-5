@@ -1,8 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useToast } from '../context/ToastContext'
 
 export function useShare() {
   const [copied, setCopied] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { showError } = useToast()
 
   useEffect(() => {
     return () => {
@@ -23,10 +25,16 @@ export function useShare() {
       return
     }
 
-    await navigator.clipboard.writeText(url)
-    setCopied(true)
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => setCopied(false), 1500)
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      if (timerRef.current) clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => setCopied(false), 1500)
+    } catch {
+      showError('No se pudo copiar el enlace')
+    }
+  // showError es estable, seguro omitir de deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return { share, copied }

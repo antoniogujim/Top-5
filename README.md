@@ -34,7 +34,7 @@ Aplicación web para crear, gestionar y compartir rankings personales de Top 5 e
 2. Ver todos sus rankings paginados (9 por página) en una cuadrícula responsiva desde la página principal.
 3. Editar o eliminar cualquier ranking (con confirmación modal antes de borrar).
 4. Compartir un ranking público: si el navegador soporta la Web Share API, abre el diálogo nativo del sistema; si no, copia el enlace directo al portapapeles y muestra el texto "¡Copiado!". Los rankings privados no muestran el botón compartir.
-5. Añadir o quitar categorías personalizadas directamente desde el formulario de creación (solo usuarios Premium). Los usuarios free ven un botón "Premium" que redirige a `/premium`. Al eliminar una categoría se muestra un modal de confirmación que avisa de que todos los rankings con esa categoría serán eliminados también. El botón de borrado desaparece cuando solo queda una categoría.
+5. Añadir o quitar categorías personalizadas (solo usuarios Premium). Cada usuario tiene su propio set de categorías: al registrarse recibe las 5 por defecto (Comida, Películas, Series, Canciones, Videojuegos) como punto de partida. Puede borrar cualquiera (con modal de confirmación y borrado en cascada de sus rankings) y crearla de nuevo cuando quiera. Si intenta añadir una que ya tiene, se le avisa con un toast. Los usuarios free ven un botón "Premium" que redirige a `/premium`.
 6. Filtrar los rankings de la página principal por categoría mediante botones de selección rápida ("Todas" + una por categoría). El filtrado es server-side y respeta la paginación existente.
 7. Cambiar entre modo claro y modo oscuro, que se recuerda entre sesiones.
 8. Registrarse e iniciar sesión con email y contraseña — el JWT se persiste en `localStorage` y la sesión se restaura automáticamente al recargar.
@@ -294,7 +294,7 @@ ToastProvider
 
 **`AuthContext`** — Al montar comprueba si hay un token en `localStorage` y llama a `GET /api/auth/me` para restaurar la sesión. Expone `login(email, password)`, `register(username, email, password)`, `logout()`, `upgrade()` y `downgrade()`. Los métodos `upgrade` y `downgrade` llaman a sus respectivos endpoints y actualizan el objeto `user` en el estado. El flag `isInitialized` evita flashes de redirección mientras se verifica el token al cargar la página.
 
-**`CategoryContext`** — Carga las categorías (`CategoryItem[]`) de `GET /api/categories` al montar. Expone `isLoading` para que los consumidores puedan mostrar un estado de carga. `addCategory` deriva el `value` en kebab-case a partir del `label` introducido por el usuario. `addCategory` y `removeCategory` sincronizan con la API. Cualquier fallo de red o del servidor muestra un toast de error; el estado local no se modifica si la operación no llega a completarse.
+**`CategoryContext`** — Carga las categorías del usuario autenticado de `GET /api/categories` al montar (el JWT se envía automáticamente, el backend devuelve solo las categorías de ese usuario). Cada usuario parte de 5 categorías por defecto asignadas al registrarse; puede añadir o borrar las suyas propias sin afectar a otros usuarios. `addCategory` deriva el `value` en kebab-case español, comprueba duplicados por `value` y por `label` (ambos insensibles a mayúsculas) antes de llamar a la API y muestra un toast si ya existe. `addCategory` y `removeCategory` sincronizan con la API. Cualquier fallo de red o del servidor muestra un toast de error; el estado local no se modifica si la operación no llega a completarse.
 
 **`RankingContext`** — Carga rankings de `GET /api/rankings?page=N&limit=9[&category=value]` al montar y cada vez que cambia `isAuthenticated`, `user.isPremium`, la página activa o el filtro de categoría. Con token devuelve los rankings del usuario; sin token devuelve únicamente los rankings de demo. La respuesta paginada `{ data, total, page, pages }` alimenta el estado `rankings`, `total`, `page` y `totalPages`. Expone `goToPage(n)` para navegar entre páginas, `setCategoryFilter(cat)` para filtrar por categoría (resetea a página 1 y activa el spinner), `refetch()` para forzar una recarga desde fuera del contexto (usado tras borrar una categoría en cascada) y un `fetchKey` interno que fuerza un refetch real tras cada mutación (crear, borrar), garantizando que la lista refleja el estado del servidor sin recargar. `canCreate` se calcula sobre `total` (no sobre `rankings.length`) para ser correcto con cualquier página activa.
 
@@ -325,7 +325,7 @@ interface RankingItem {
 }
 
 interface CategoryItem {
-  value: string  // kebab-case (ej: "video-juegos")
+  value: string  // kebab-case en español (ej: "videojuegos")
   label: string  // nombre legible (ej: "Videojuegos")
 }
 ```
@@ -506,7 +506,7 @@ vercel --prod        # producción
 | Navbar límite de plan | Completo ("Crear" pasa a "Mejorar" al alcanzar el límite gratuito) |
 | Rankings de ejemplo públicos | Completo (solo demo; los rankings de usuarios no se exponen públicamente) |
 | Perfil de usuario | Completo (datos de cuenta, progreso de plan, acceso rápido a crear) |
-| Categorías personalizadas | Completo (frontend + backend + API, borrado en cascada con confirmación, protección contra borrar la última) |
+| Categorías por usuario | Completo (cada usuario tiene su propio set; 5 por defecto en español al registrarse; Premium puede añadir/borrar; borrado en cascada con confirmación; aviso de duplicado por valor y etiqueta insensible a mayúsculas; formulario arranca con la primera categoría real del usuario; free ve enlace a Premium) |
 | Filtro por categoría en Home | Completo (server-side, respeta paginación, spinner al cambiar filtro) |
 | Modo oscuro / claro | Completo |
 | Compartir rankings | Completo (solo en rankings públicos) |
@@ -514,7 +514,7 @@ vercel --prod        # producción
 | Paginación server-side | Completo (9 por página, controles Anterior/Siguiente, refetch tras mutaciones, retroceso automático si la página queda vacía) |
 | Vista pública de ranking | Completo |
 | Estados de red (loading / data / error) | Completo (spinner en Home y guards, botón bloqueado en formularios, toasts de error) |
-| Manejo de errores en la UI | Completo (toasts en todas las operaciones de API) |
+| Manejo de errores en la UI | Completo (toasts en todas las operaciones de API, fallo de portapapeles al compartir, fallo de upgrade/downgrade Premium) |
 | Página 404 | Completo (ruta catch-all con enlace al home) |
 | Formularios controlados | Completo (Auth y CreateRanking con useState + validación inline) |
 | Documentación técnica | Completo (7 documentos en docs/) |
@@ -526,7 +526,6 @@ vercel --prod        # producción
 
 ### Prioridad alta
 
-- **Categorías por usuario** — Actualmente las categorías son un recurso global compartido: si un usuario borra una categoría desaparece para todos. Hay que hacer que cada usuario tenga sus propias categorías personalizadas (las categorías por defecto seguirían siendo globales y visibles para todos).
 - **Base de datos real** — Actualmente usuarios, rankings y categorías se almacenan en arrays en memoria dentro de los servicios del backend. Al reiniciar el servidor (o en Vercel entre invocaciones serverless) los datos se pierden. Hay que integrar una base de datos persistente (PostgreSQL, MongoDB, SQLite...).
 - **Hash de contraseñas** — Las contraseñas se guardan en texto plano. Hay que usar `bcrypt` antes de almacenarlas y al verificar el login.
 

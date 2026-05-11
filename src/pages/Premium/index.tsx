@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import { useToast } from '../../context/ToastContext'
 import { Modal } from '../../components/ui/Modal'
 
 const FEATURES = [
@@ -26,6 +27,7 @@ function FeatureValue({ value }: { value: boolean | string }) {
 
 export default function Premium() {
   const { user, upgrade, downgrade } = useAuth()
+  const { showError } = useToast()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
@@ -35,6 +37,8 @@ export default function Premium() {
     setLoading(true)
     try {
       await upgrade()
+    } catch {
+      showError('No se pudo activar Premium')
     } finally {
       setLoading(false)
     }
@@ -44,6 +48,8 @@ export default function Premium() {
     setLoading(true)
     try {
       await downgrade()
+    } catch {
+      showError('No se pudo cancelar la suscripción')
     } finally {
       setLoading(false)
     }

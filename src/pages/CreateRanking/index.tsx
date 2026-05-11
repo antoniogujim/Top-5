@@ -22,7 +22,7 @@ export default function CreateRanking() {
   const existing = isEditing ? rankings.find((r) => r.id === id) : null
 
   const [title, setTitle]       = useState(() => existing?.title ?? '')
-  const [category, setCategory] = useState<Category>(() => existing?.category ?? 'movies')
+  const [category, setCategory] = useState<Category>(() => existing?.category ?? categories[0]?.value ?? '')
   const [isPublic, setIsPublic] = useState(() => existing?.isPublic ?? true)
   const [items, setItems]       = useState<string[]>(() =>
     existing ? EMPTY_ITEMS.map((_, i) => existing.items[i]?.title ?? '') : EMPTY_ITEMS

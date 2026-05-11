@@ -4,8 +4,8 @@ import { rankingsService } from '../services/rankings.service'
 import { authService } from '../services/auth.service'
 
 export const categoriesController = {
-  getAll(_req: Request, res: Response): void {
-    res.json(categoriesService.getAll())
+  getAll(req: Request, res: Response): void {
+    res.json(categoriesService.getAll(req.userId))
   },
 
   create(req: Request, res: Response): void {
@@ -20,7 +20,7 @@ export const categoriesController = {
         res.status(400).json({ message: 'label is required' })
         return
       }
-      const category = categoriesService.add(label)
+      const category = categoriesService.add(label, req.userId!)
       res.status(201).json(category)
     } catch (err) {
       res.status(409).json({ message: (err as Error).message })
@@ -35,7 +35,7 @@ export const categoriesController = {
     }
     try {
       rankingsService.removeByCategory(req.userId!, req.params.value)
-      categoriesService.remove(req.params.value)
+      categoriesService.remove(req.params.value, req.userId!)
       res.status(204).send()
     } catch (err) {
       res.status(404).json({ message: (err as Error).message })

@@ -5,7 +5,7 @@ const rankings: Ranking[] = [
   {
     id: 'demo-1',
     title: 'Mejores pelis de acción',
-    category: 'movies',
+    category: 'peliculas',
     userId: 'demo',
     createdAt: '2024-01-01',
     isPublic: true,
@@ -20,7 +20,7 @@ const rankings: Ranking[] = [
   {
     id: 'demo-2',
     title: 'Canciones del verano',
-    category: 'songs',
+    category: 'canciones',
     userId: 'demo',
     createdAt: '2024-01-02',
     isPublic: true,
@@ -35,7 +35,7 @@ const rankings: Ranking[] = [
   {
     id: 'demo-3',
     title: 'Videojuegos imprescindibles',
-    category: 'videogames',
+    category: 'videojuegos',
     userId: 'demo',
     createdAt: '2024-01-03',
     isPublic: true,

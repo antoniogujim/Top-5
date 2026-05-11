@@ -1,11 +1,16 @@
 import jwt from 'jsonwebtoken'
 import { config } from '../config'
 import type { User, JwtPayload } from '../types'
+import { categoriesService } from './categories.service'
 
 const users: User[] = [
   { id: '1', username: 'demo', email: 'demo@example.com', password: '123456', isPremium: false },
   { id: '2', username: 'premium', email: 'premium@example.com', password: '123456', isPremium: true },
 ]
+
+// Inicializar categorías por defecto para los usuarios demo
+categoriesService.initUserCategories('1')
+categoriesService.initUserCategories('2')
 
 export const authService = {
   findByEmail(email: string): User | undefined {
@@ -24,6 +29,7 @@ export const authService = {
       isPremium: false,
     }
     users.push(user)
+    categoriesService.initUserCategories(user.id)
     return user
   },
 
