@@ -60,6 +60,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
   const [categoryFilter, setCategoryFilterState] = useState('')
 
   const setCategoryFilter = (cat: string) => {
+    if (cat === categoryFilter) return
     setCategoryFilterState(cat)
     setPage(1)
     setIsLoading(true)
